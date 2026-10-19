@@ -1,28 +1,31 @@
-import MaterialIcons from '@expo/vector-icons/MaterialIcons';
-import { StyleSheet, Text, View } from 'react-native';
-import { formatearPesosConSigno } from '@/utils/formato';
-import { colores, fuentes, radios, tipografia } from '@/theme';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
+import IconoCategoria from './IconoCategoria';
+import { formatearFechaMovimiento, formatearPesosConSigno } from '@/utils/formato';
+import { obtenerMontoConSigno, obtenerTituloMovimiento } from '@/utils/movimientos';
+import { colores, fuentes, tipografia } from '@/theme';
 
-export default function FilaMovimiento({ movimiento }) {
-  const { icono, titulo, categoria, fecha, monto } = movimiento;
+export default function FilaMovimiento({ movimiento, onPress }) {
+  const { categoria, fecha, tipo } = movimiento;
+  const titulo = obtenerTituloMovimiento(movimiento);
 
   return (
-    <View style={styles.fila}>
-      <View style={styles.icono}>
-        <MaterialIcons name={icono} size={22} color={colores.iconoMovimiento} />
-      </View>
+    <Pressable
+      onPress={onPress}
+      accessibilityRole="button"
+      style={({ pressed }) => [styles.fila, pressed && styles.filaPresionada]}>
+      <IconoCategoria icono={categoria?.icono} />
       <View style={styles.textos}>
         <Text style={styles.titulo} numberOfLines={2}>
           {titulo}
         </Text>
-        <Text style={styles.meta}>
-          {categoria} · {fecha}
+        <Text style={styles.meta} numberOfLines={1}>
+          {categoria?.nombre ?? 'Sin categoría'} · {formatearFechaMovimiento(new Date(fecha))}
         </Text>
       </View>
-      <Text style={[styles.monto, { color: monto > 0 ? colores.ingreso : colores.egreso }]}>
-        {formatearPesosConSigno(monto)}
+      <Text style={[styles.monto, { color: tipo === 'income' ? colores.ingreso : colores.egreso }]}>
+        {formatearPesosConSigno(obtenerMontoConSigno(movimiento))}
       </Text>
-    </View>
+    </Pressable>
   );
 }
 
@@ -38,13 +41,8 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     paddingHorizontal: 16,
   },
-  icono: {
-    width: 42,
-    height: 42,
-    borderRadius: radios.icono,
-    backgroundColor: colores.elevado,
-    alignItems: 'center',
-    justifyContent: 'center',
+  filaPresionada: {
+    backgroundColor: colores.presionado,
   },
   textos: {
     flex: 1,

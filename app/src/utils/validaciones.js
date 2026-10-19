@@ -35,4 +35,24 @@ export function validarRegistro({ nombre, email, password }) {
   return errores;
 }
 
-export const tieneErrores = (errores) => Object.keys(errores).length > 0;
+// Mismos límites que el back para movimientos y categorías.
+const DESCRIPCION_MAX_CARACTERES = 200;
+const NOMBRE_CATEGORIA_MAX_CARACTERES = 40;
+
+export function validarMovimiento({ monto, descripcion }) {
+  const errores = {};
+  if (!(monto > 0)) errores.monto = 'Ingresá un monto mayor a 0.';
+  if (descripcion.trim().length > DESCRIPCION_MAX_CARACTERES) {
+    errores.descripcion = `La descripción puede tener como máximo ${DESCRIPCION_MAX_CARACTERES} caracteres.`;
+  }
+  return errores;
+}
+
+export function validarNombreCategoria(nombre) {
+  if (estaVacio(nombre)) return 'Ingresá un nombre.';
+  if (nombre.trim().length > NOMBRE_CATEGORIA_MAX_CARACTERES) {
+    return `El nombre puede tener como máximo ${NOMBRE_CATEGORIA_MAX_CARACTERES} caracteres.`;
+  }
+}
+
+export const tieneErrores =(errores) => Object.keys(errores).length > 0;

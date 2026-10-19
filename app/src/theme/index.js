@@ -9,6 +9,8 @@ export const colores = {
   bordeNavbar: 'rgba(255,255,255,0.10)',
   tabActiva: 'rgba(255,255,255,0.10)',
   presionado: 'rgba(255,255,255,0.06)',
+  segmentoActivo: '#3A3B40',
+  velo: 'rgba(0,0,0,0.6)',
 
   texto: '#F4F4F5',
   texto2: '#A1A3A8',
@@ -46,6 +48,7 @@ export const tipografia = {
 };
 
 export const radios = {
+  hoja: 32,
   tarjeta: 28,
   logo: 18,
   mensaje: 16,

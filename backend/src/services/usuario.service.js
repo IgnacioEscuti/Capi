@@ -1,4 +1,7 @@
 import { usuarioRepository } from "../repositories/usuario.repository.js";
+import { categoriaRepository } from "../repositories/categoria.repository.js";
+import { enTransaccion } from "../config/database.js";
+import { CATEGORIAS_INICIALES } from "../config/categoriasIniciales.js";
 import { crearHash, esPasswordValida } from "../utils/hash.utils.js";
 import { generarToken } from "../utils/jwt.utils.js";
 import { normalizarEmail } from "../utils/email.utils.js";
@@ -9,8 +12,9 @@ const MINUTOS_BLOQUEO = 2;
 const PG_VIOLACION_UNIQUE = "23505";
 
 export class UsuarioService {
-  constructor(repository) {
+  constructor(repository, categoriaRepository) {
     this.repository = repository;
+    this.categoriaRepository = categoriaRepository;
   }
 
   async registrar({ nombre, email, password }) {
@@ -22,10 +26,15 @@ export class UsuarioService {
     const passwordHash = await crearHash(password);
 
     try {
-      return await this.repository.crear({
-        nombre: nombre.trim(),
-        email: emailNormalizado,
-        passwordHash,
+      // Usuario y categorías iniciales van juntos: si falla cualquiera de
+      // los dos INSERT, el ROLLBACK deshace todo y no queda nada a medias.
+      return await enTransaccion(async (client) => {
+        const usuario = await this.repository.crear(
+          { nombre: nombre.trim(), email: emailNormalizado, passwordHash },
+          client
+        );
+        await this.categoriaRepository.crearVarias(usuario.id, CATEGORIAS_INICIALES, client);
+        return usuario;
       });
     } catch (error) {
       // Dos registros simultáneos con el mismo email pueden pasar el chequeo
@@ -72,4 +81,4 @@ export class UsuarioService {
   }
 }
 
-export const usuarioService = new UsuarioService(usuarioRepository);
+export const usuarioService = new UsuarioService(usuarioRepository, categoriaRepository);

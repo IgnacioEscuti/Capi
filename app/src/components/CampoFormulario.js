@@ -51,6 +51,30 @@ export default function CampoFormulario({ ref, icono, etiqueta, error, ayuda, es
   );
 }
 
+// Misma apariencia que el campo, pero en vez de escribir se toca para elegir (Fecha, Categoría).
+export function CampoBoton({ icono, etiqueta, valor, valorAtenuado = false, onPress }) {
+  return (
+    <Pressable
+      onPress={onPress}
+      accessibilityRole="button"
+      accessibilityLabel={`${etiqueta}: ${valor}`}
+      style={({ pressed }) => [styles.contenedor, pressed && styles.contenedorPresionado]}>
+      <View style={styles.fila}>
+        <View style={[styles.icono, { backgroundColor: colores.elevado }]}>
+          <MaterialIcons name={icono} size={21} color={colores.texto2} />
+        </View>
+        <View style={styles.textos}>
+          <Text style={styles.etiqueta}>{etiqueta}</Text>
+          <Text style={[styles.input, valorAtenuado && styles.valorAtenuado]} numberOfLines={1}>
+            {valor}
+          </Text>
+        </View>
+        <MaterialIcons name="chevron-right" size={24} color={colores.texto3} />
+      </View>
+    </Pressable>
+  );
+}
+
 export function TarjetaCampos({ style, children }) {
   return <View style={[styles.tarjeta, style]}>{children}</View>;
 }
@@ -79,6 +103,9 @@ const styles = StyleSheet.create({
   contenedorConError: {
     backgroundColor: colores.egresoFondo,
   },
+  contenedorPresionado: {
+    backgroundColor: colores.presionado,
+  },
   fila: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -105,6 +132,9 @@ const styles = StyleSheet.create({
     fontSize: 17,
     color: colores.texto,
     padding: 0,
+  },
+  valorAtenuado: {
+    color: colores.texto2,
   },
   botonVer: {
     width: 44,

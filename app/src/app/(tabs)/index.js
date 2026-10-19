@@ -1,30 +1,29 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { Link } from 'expo-router';
 import { Fragment } from 'react';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import FilaMovimiento, { SeparadorMovimientos } from '@/components/FilaMovimiento';
+import MensajeError from '@/components/MensajeError';
 import Resplandor from '@/components/Resplandor';
 import { useAuth } from '@/context/AuthContext';
-import { datosInicio } from '@/mocks/inicio';
+import { useDatosAlEnfocar } from '@/hooks/useDatosAlEnfocar';
+import { obtenerInicio } from '@/services/inicio.service';
 import { colores, espaciado, fuentes, radios, tipografia } from '@/theme';
 import {
   formatearFechaCorta,
+  formatearMesAnio,
   formatearNumero,
   formatearPesos,
   obtenerIniciales,
   obtenerPrimerNombre,
 } from '@/utils/formato';
+import { abrirFormularioMovimiento } from '@/utils/navegacion';
 
 export default function InicioScreen() {
   const { usuario } = useAuth();
   const insets = useSafeAreaInsets();
-  const { saldo, variacionMes, esteMes, movimientos } = datosInicio;
-
-  const [saldoEntero, saldoCentavos] = formatearNumero(saldo).split(',');
-  const variacionPositiva = variacionMes >= 0;
-  const colorVariacion = variacionPositiva ? colores.ingreso : colores.egreso;
-  const porcentajeGastado = esteMes.ingresos > 0 ? (esteMes.egresos / esteMes.ingresos) * 100 : 0;
+  const { datos, error } = useDatosAlEnfocar(obtenerInicio);
 
   return (
     <ScrollView
@@ -45,6 +44,32 @@ export default function InicioScreen() {
         </View>
       </View>
 
+      {error !== '' && (
+        <View style={styles.error}>
+          <MensajeError mensaje={error} />
+        </View>
+      )}
+
+      {datos ? (
+        <ResumenInicio datos={datos} />
+      ) : (
+        !error && <ActivityIndicator color={colores.texto2} style={styles.cargando} />
+      )}
+    </ScrollView>
+  );
+}
+
+function ResumenInicio({ datos }) {
+  const { saldo, esteMes, ultimos } = datos;
+
+  const [saldoEntero, saldoCentavos] = formatearNumero(saldo).split(',');
+  const variacionMes = esteMes.ingresos - esteMes.egresos;
+  const variacionPositiva = variacionMes >= 0;
+  const colorVariacion = variacionPositiva ? colores.ingreso : colores.egreso;
+  const porcentajeGastado = esteMes.ingresos > 0 ? (esteMes.egresos / esteMes.ingresos) * 100 : 0;
+
+  return (
+    <>
       <View style={styles.bloqueSaldo}>
         <Text style={styles.etiquetaSaldo}>Saldo total</Text>
         <Text style={styles.saldo} numberOfLines={1} adjustsFontSizeToFit>
@@ -62,7 +87,7 @@ export default function InicioScreen() {
       <View style={[styles.tarjeta, styles.tarjetaMes]}>
         <View style={styles.filaEntre}>
           <Text style={styles.tituloTarjeta}>Este mes</Text>
-          <Text style={styles.textoSecundario}>{esteMes.periodo}</Text>
+          <Text style={styles.textoSecundario}>{formatearMesAnio(new Date())}</Text>
         </View>
 
         <View style={styles.columnas}>
@@ -75,7 +100,9 @@ export default function InicioScreen() {
             <View style={[styles.barra, { width: `${Math.min(porcentajeGastado, 100)}%` }]} />
           </View>
           <Text style={styles.textoSecundario}>
-            Gastaste el {porcentajeGastado.toFixed(1).replace('.', ',')} % de lo que ingresó.
+            {esteMes.ingresos > 0
+              ? `Gastaste el ${porcentajeGastado.toFixed(1).replace('.', ',')} % de lo que ingresó.`
+              : 'Todavía no hubo ingresos este mes.'}
           </Text>
         </View>
       </View>
@@ -88,14 +115,20 @@ export default function InicioScreen() {
       </View>
 
       <View style={[styles.tarjeta, styles.listaMovimientos]}>
-        {movimientos.map((movimiento, indice) => (
-          <Fragment key={movimiento.id}>
-            {indice > 0 && <SeparadorMovimientos />}
-            <FilaMovimiento movimiento={movimiento} />
-          </Fragment>
-        ))}
+        {ultimos.length === 0 ? (
+          <Text style={[styles.textoSecundario, styles.sinMovimientos]}>
+            Todavía no hay movimientos. Tocá el + para cargar el primero.
+          </Text>
+        ) : (
+          ultimos.map((movimiento, indice) => (
+            <Fragment key={movimiento.id}>
+              {indice > 0 && <SeparadorMovimientos />}
+              <FilaMovimiento movimiento={movimiento} onPress={() => abrirFormularioMovimiento(movimiento)} />
+            </Fragment>
+          ))
+        )}
       </View>
-    </ScrollView>
+    </>
   );
 }
 
@@ -287,5 +320,16 @@ const styles = StyleSheet.create({
   },
   listaMovimientos: {
     paddingVertical: 4,
+    overflow: 'hidden',
+  },
+  sinMovimientos: {
+    padding: 20,
+    textAlign: 'center',
+  },
+  error: {
+    paddingTop: 24,
+  },
+  cargando: {
+    paddingTop: 80,
   },
 });

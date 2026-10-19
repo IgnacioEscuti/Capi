@@ -2,6 +2,7 @@ import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { BlurView } from 'expo-blur';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { colores, espaciado, fuentes, radios, sombras } from '@/theme';
+import { abrirFormularioMovimiento } from '@/utils/navegacion';
 
 // Reemplaza la barra de tabs por defecto: Expo Router le pasa el estado de navegación por props.
 export default function NavbarGlass({ state, descriptors, navigation }) {
@@ -38,6 +39,7 @@ export default function NavbarGlass({ state, descriptors, navigation }) {
       </View>
 
       <Pressable
+        onPress={() => abrirFormularioMovimiento()}
         accessibilityRole="button"
         accessibilityLabel="Agregar movimiento"
         style={({ pressed }) => [styles.botonAgregar, pressed && styles.botonAgregarPresionado]}>

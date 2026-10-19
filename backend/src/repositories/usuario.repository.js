@@ -17,8 +17,9 @@ export const usuarioRepository = {
     return rows[0] ?? null;
   },
 
-  async crear({ nombre, email, passwordHash }) {
-    const { rows } = await pool.query(
+  // "db" es el pool por defecto, o el client de una transacción.
+  async crear({ nombre, email, passwordHash }, db = pool) {
+    const { rows } = await db.query(
       `INSERT INTO users (name, email, password_hash)
        VALUES ($1, $2, $3)
        RETURNING ${COLUMNAS_PUBLICAS}`,
