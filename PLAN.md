@@ -15,7 +15,7 @@ App personal para registrar ingresos y egresos. Uso propio por ahora (quizás ve
 
 - **Front:** React Native + Expo.
 - Librerías de la app sumadas en la etapa 2: `@react-native-community/datetimepicker` (selector de fecha nativo).
-- **Back:** Node + Express, Passport (local + jwt), bcryptjs. Deploy en Koyeb.
+- **Back:** Node + Express, Passport (local + jwt), bcryptjs. Deploy en **Vercel** (plan Hobby), ejecutado como Vercel Functions con Fluid compute.
 - **Base:** PostgreSQL en Neon, con el driver `pg` (SQL a mano, sin ORM).
 - Primera vez con React Native, Expo y PostgreSQL: explicar conceptos nuevos comparando con React web y MongoDB/Mongoose. No sumar tecnologías nuevas sin hablarlo.
 
@@ -179,8 +179,18 @@ Hacen falta igual para el efectivo y definen la tabla de movimientos (ver "Tabla
 ### Etapa 3 — Carga automática desde la API de MP
 Conexión por OAuth de MP (multiusuario). Sincronización por polling (ver "Fuentes de datos").
 
-**3a — Deploy del back en Koyeb**
-- Back en Koyeb con las variables de entorno. Hace falta una URL pública para el retorno de OAuth.
+**3a — Deploy del back en Vercel**
+Hace falta una URL pública para el retorno de OAuth. (Primero se pensó en Koyeb, pero la compró Mistral y ya no ofrece servidores comunes.)
+- [x] Proyecto en Vercel (plan Hobby) con Root Directory `backend` y preset Express. Corre como Vercel Functions con Fluid compute.
+- [x] Región `gru1` (São Paulo, la más cercana a Neon y a Argentina) en `backend/vercel.json`.
+- [x] Variables en el panel de Vercel: `DATABASE_URL` (string **pooled** de Neon, branch production, con `sslmode=verify-full`), `JWT_SECRET` y `NODE_ENV=production`.
+- [x] Misma base y mismo `JWT_SECRET` que en local: un token sacado en local sirve en producción y viceversa.
+- [x] URL de producción: https://capi-phi-sandy.vercel.app
+- [ ] Probar producción con curl: `GET /api/auth/actual` sin token → 401, login → token, `GET /api/inicio` y `GET /api/categorias` con datos reales, función corriendo en `gru1`.
+
+Notas:
+- El plan Hobby es solo para uso no comercial: si se vende la app, pasar a Pro.
+- `express-rate-limit` guarda los contadores en memoria y en Vercel cada instancia cuenta por separado, así que pierde efectividad. El bloqueo por intentos fallidos sigue andando porque está en la base. No se cambia ahora (ver "Pendientes").
 
 **3b — Back**
 - Primero: verificar que un token obtenido por OAuth devuelve en `/v1/payments/search` lo mismo que el token de la aplicación (ingresos, transferencias MP, reservas). Si no, frenar y replantear.
@@ -205,11 +215,11 @@ Pagos con QR/tarjeta y transferencias a bancos. Alcance a definir antes de arran
 
 ### Después de las pantallas principales
 - **Face ID** (`expo-local-authentication`): pedirlo al abrir la app y al volver de segundo plano tras más de 1 minuto. La contraseña se pide solo si el token venció, se cerró sesión o falla Face ID. Requiere development build (Expo Go no soporta Face ID en iPhone).
-- **Recuperar contraseña:** código de 6 dígitos por email, vence en 15 minutos. Columnas nuevas: `reset_code_hash`, `reset_code_expires_at` (con `ALTER TABLE`). Envío con Nodemailer + Gmail (contraseña de aplicación). Primero probar un mail desde Koyeb: si el SMTP está bloqueado, pasar a un servicio por API.
+- **Recuperar contraseña:** código de 6 dígitos por email, vence en 15 minutos. Columnas nuevas: `reset_code_hash`, `reset_code_expires_at` (con `ALTER TABLE`). Envío con Nodemailer + Gmail (contraseña de aplicación). Primero probar un mail desde Vercel: si el SMTP está bloqueado, pasar a un servicio por API.
 
 ### PWA provisoria (más adelante, después del deploy)
 Para usar Capi en el iPhone sin Expo Go ni cuenta de Apple, hasta pasar a la app nativa con TestFlight/App Store.
-- Versión web de la app (React Native Web) en Vercel, con rewrite de `/api` al back en Koyeb (como AnimalPiletas, sin CORS).
+- Versión web de la app (React Native Web) en Vercel. El back ya está en Vercel: la web llama a `/api` sin CORS, sirviéndola desde el mismo proyecto o con un rewrite de `/api` a https://capi-phi-sandy.vercel.app (como AnimalPiletas). Se define al armarla.
 - En el iPhone: Safari → Compartir → Agregar a pantalla de inicio. Ícono, manifest y meta tags de iOS para pantalla completa.
 - Token en web: `localStorage` (en nativo sigue `expo-secure-store`).
 - **Todo el código de la versión web es PROVISORIO y se elimina al pasar a la app nativa.** Cada parte va marcada con el comentario `PROVISORIO-WEB` para encontrarla y borrarla.
@@ -268,3 +278,4 @@ Probado con Access Token de producción de la aplicación "Capi" (Checkout API) 
 - Renovar el Access Token de MP (quedó expuesto en una captura).
 - Borrar la URL de webhook.site de la configuración de webhooks de la aplicación "Capi" en MP.
 - Antes de diseñar algo que dependa de Mercado Pago, verificar qué datos da realmente la API.
+- **Antes de vender:** pasar Vercel de Hobby a Pro, y hacer que el rate limit funcione con varias instancias (hoy está en memoria y cada instancia de Vercel cuenta por separado).
