@@ -18,15 +18,18 @@ function montoMovido(pago, tipo) {
   return monto > 0 ? monto : pago.transaction_amount;
 }
 
+// El branch real trae texto de más y no siempre con el mismo formato
+// ("AM-to-POT - Partition Transfer", "POT-to-AM-Partition Transfer"):
+// se compara solo el comienzo.
 function descripcionDeReserva(pago) {
-  const branch = pago.point_of_interaction?.business_info?.branch;
+  const branch = pago.point_of_interaction?.business_info?.branch ?? "";
   const haciaReserva = pago.amounts?.collector?.transaction_destination?.subpartition?.name;
   const desdeReserva = pago.amounts?.payer?.transaction_source?.partitions?.[0]?.subpartition?.name;
 
-  if (branch === "AM-to-POT" || (!branch && haciaReserva)) {
+  if (branch.startsWith("AM-to-POT") || (!branch && haciaReserva)) {
     return haciaReserva ? `A reserva: ${haciaReserva}` : "A reserva";
   }
-  if (branch === "POT-to-AM" || (!branch && desdeReserva)) {
+  if (branch.startsWith("POT-to-AM") || (!branch && desdeReserva)) {
     return desdeReserva ? `Desde reserva: ${desdeReserva}` : "Desde reserva";
   }
   return "Movimiento de reserva";
@@ -36,8 +39,10 @@ function descripcionDeReserva(pago) {
 export function mapearPago(pago, mpUserId) {
   if (pago.status !== "approved") return null;
 
+  // MP no es consistente: cuando yo cobro trae payer.id y collector_id;
+  // cuando yo pago trae payer_id y collector.id (y los otros en null).
   const yo = aId(mpUserId);
-  const pagador = aId(pago.payer?.id);
+  const pagador = aId(pago.payer_id ?? pago.payer?.id);
   const cobrador = aId(pago.collector_id ?? pago.collector?.id);
 
   let tipo;

@@ -210,13 +210,15 @@ Notas:
   - Inserta con `ON CONFLICT DO NOTHING` (no duplica ni pisa ediciones), categoría null. `last_synced_at` = momento en que arrancó; se guarda en la misma transacción que los movimientos.
   - Fecha: `date_approved` (si no viene, `date_created`).
   - Monto: ingreso → `transaction_details.net_received_amount` (neto de retenciones); egreso → `transaction_details.total_paid_amount`; interno → `transaction_amount`. Si el campo falta o es 0, `transaction_amount`.
+    - Verificado con pagos reales: `net_received_amount` = `transaction_amount` − `charges_details` del que cobra (ej. 35.500 − 355 de retención = 35.145). Las retenciones y comisiones las paga siempre el que cobra (`fee_payer: "collector"`), así que en un egreso lo que sale del saldo es el bruto (`total_paid_amount`), no el neto.
 - Mapeo al importar:
   - Solo pagos con `status: "approved"`. Rechazados, cancelados y devoluciones no se importan (devoluciones: más adelante).
   - Regla general: `payer_id` == yo → egreso; `collector_id` == yo → ingreso. Vale para `money_transfer`, `account_fund`, `regular_payment` y `recurring_payment`.
   - Excepción `account_fund` (CVU): `payer` y `collector` son los dos yo → siempre ingreso, sin persona.
   - `money_transfer`: guarda el ID de MP de la contraparte.
   - `regular_payment` / `recurring_payment`: sin contraparte (es un comercio); descripción = `description`.
-  - `partition_transfer` → `internal`, descripción "A reserva: <nombre>" (`AM-to-POT`) / "Desde reserva: <nombre>" (`POT-to-AM`). El branch se lee de `point_of_interaction.business_info.branch`.
+  - Quién es quién (verificado 20/10/2026): cuando yo cobro, MP trae `payer.id` y `collector_id`; cuando yo pago, trae `payer_id` (arriba de todo) y `collector.id`, con los otros en null. Se lee `payer_id ?? payer.id` y `collector_id ?? collector.id`.
+  - `partition_transfer` → `internal`, descripción "A reserva: <nombre>" / "Desde reserva: <nombre>". La dirección sale de `point_of_interaction.business_info.branch`, que empieza con `AM-to-POT` o `POT-to-AM` (valores reales: `"AM-to-POT - Partition Transfer"`, `"POT-to-AM-Partition Transfer"`; se compara el comienzo).
   - Otros `operation_type` → no se importan.
 - `movements`: `source` suma `'mp_api'`, `type` suma `'internal'` (aparece en la lista pero no suma ni resta en saldo ni en ingresos/egresos de `/api/inicio`), columnas `external_id` (TEXT) y `counterparty_mp_id` (BIGINT), `UNIQUE (user_id, source, external_id)`.
 - Movimientos de MP:
@@ -233,10 +235,12 @@ Checklist 3b:
 - [x] Rutas `/api/mp`: conectar, callback, estado, conexión (DELETE), sincronizar.
 - [x] Reglas de PUT/DELETE para movimientos de MP; `internal` fuera del saldo y del resumen del mes.
 - [x] Variables nuevas en `env.js` y `.env.example`.
-- [ ] Correr la migración en Neon.
-- [ ] Cargar las variables en Vercel y en el `.env` local; deploy.
-- [ ] Probar en producción: conectar, estado, sincronizar, editar y borrar un movimiento de MP, desconectar.
-- [ ] Confirmar con pagos reales los campos de monto (`net_received_amount` / `total_paid_amount`) y de reservas (`business_info.branch`, nombres de la subpartición).
+- [x] Correr la migración en Neon (production).
+- [x] Cargar las variables en Vercel y en el `.env` local; deploy.
+- [x] Confirmar con pagos reales los campos de monto (`net_received_amount` / `total_paid_amount`) y de reservas (`business_info.branch`, nombres de la subpartición).
+- [x] Corregido tras la prueba real: egresos (`payer_id` / `collector.id`) y `branch` de reservas con texto de más.
+- [x] Probado en producción (cuenta de prueba): conectar, estado, sincronizar ×2 (9 → 0), movimientos, inicio (saldo sin `internal`), PUT de descripción 200 / monto y tipo 400, DELETE de MP 409, manual → `internal` 400, `returnUrl` inválida 400.
+- [ ] Deploy de la corrección y volver a probar: desconectar (204, movimientos quedan), sincronizar sin conexión 409, reconectar y sincronizar (deben entrar los egresos y "A reserva: …").
 
 **3c — App**
 - Librería nueva: `expo-web-browser` (abrir el login de MP y volver a la app).
