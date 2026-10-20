@@ -177,7 +177,28 @@ Hacen falta igual para el efectivo y definen la tabla de movimientos (ver "Tabla
 - [ ] Probar en el iPhone con Expo Go contra el back local.
 
 ### Etapa 3 — Carga automática desde la API de MP
-Ingresos, transferencias dentro de MP y reservas, por polling (ver "Fuentes de datos"). Alcance a definir antes de arrancar.
+Conexión por OAuth de MP (multiusuario). Sincronización por polling (ver "Fuentes de datos").
+
+**3a — Deploy del back en Koyeb**
+- Back en Koyeb con las variables de entorno. Hace falta una URL pública para el retorno de OAuth.
+
+**3b — Back**
+- Primero: verificar que un token obtenido por OAuth devuelve en `/v1/payments/search` lo mismo que el token de la aplicación (ingresos, transferencias MP, reservas). Si no, frenar y replantear.
+- OAuth de MP: URL de autorización con `state` (y PKCE si se puede), callback fijo registrado en la app "Capi" de MP, intercambio del `code` por access token (180 días) y refresh token (scope `offline_access`).
+- Tokens guardados **encriptados** en la base con `crypto` de Node (clave en `.env`). Renovación automática con el refresh token antes de que venzan.
+- Desconectar: se borran los tokens; los movimientos importados quedan.
+- Sincronizar: primera vez, últimos 5 días; después, desde la última sincronización. Sin duplicar: ID del pago de MP como ID externo (`UNIQUE` por usuario + fuente + ID externo).
+- Mapeo: `money_transfer` → ingreso/egreso según payer/collector, con el ID de MP de la contraparte; `account_fund` (CVU) → ingreso sin persona; `partition_transfer` → `internal`.
+- `movements`: `source` suma `'mp_api'`, `type` suma `'internal'` (no suma ni resta en saldo ni en ingresos/egresos), columnas nuevas de ID externo y ID de MP de la contraparte (`ALTER TABLE`).
+- Movimientos de MP: se editan categoría y descripción, el monto no.
+- La sincronización no pisa ediciones manuales.
+
+**3c — App**
+- Librería nueva: `expo-web-browser` (abrir el login de MP y volver a la app).
+- Ajustes: conectar / desconectar Mercado Pago.
+- Sincronizar al abrir la app y con pull to refresh en Inicio y Movimientos.
+- Movimiento interno: gris, sin signo, descripción tipo "A reserva: Vacaciones" / "Desde reserva: Vacaciones".
+- Pantallas nuevas (conectar MP en Ajustes, fila de movimiento interno): diseñarlas antes en Claude Design.
 
 ### Etapa 4 — Mails de MP en Gmail
 Pagos con QR/tarjeta y transferencias a bancos. Alcance a definir antes de arrancar.
