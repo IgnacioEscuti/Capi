@@ -47,6 +47,43 @@ export const movimientoRepository = {
     return rowCount > 0;
   },
 
+  // Para los movimientos de MP: tipo, monto y fecha vienen de MP y no se tocan.
+  async actualizarDescripcionYCategoria(id, userId, { descripcion, categoriaId }) {
+    const { rowCount } = await pool.query(
+      `UPDATE movements
+       SET description = $3, category_id = $4, updated_at = now()
+       WHERE id = $1 AND user_id = $2`,
+      [id, userId, descripcion, categoriaId]
+    );
+    return rowCount > 0;
+  },
+
+  // Inserta los movimientos de MP en una sola consulta (unnest despliega los
+  // arrays en filas). Los que ya estaban (mismo usuario + fuente + ID externo)
+  // se saltean, así no se duplican ni se pisan ediciones manuales.
+  // Devuelve cuántos se insertaron de verdad.
+  async crearImportados(userId, movimientos, db = pool) {
+    if (movimientos.length === 0) return 0;
+
+    const { rowCount } = await db.query(
+      `INSERT INTO movements (user_id, type, amount, occurred_at, description, source, external_id, counterparty_mp_id)
+       SELECT $1, tipo, monto, fecha, descripcion, 'mp_api', external_id, contraparte
+       FROM unnest($2::text[], $3::numeric[], $4::timestamptz[], $5::text[], $6::text[], $7::bigint[])
+         AS m(tipo, monto, fecha, descripcion, external_id, contraparte)
+       ON CONFLICT (user_id, source, external_id) DO NOTHING`,
+      [
+        userId,
+        movimientos.map((m) => m.tipo),
+        movimientos.map((m) => m.monto),
+        movimientos.map((m) => m.fecha),
+        movimientos.map((m) => m.descripcion),
+        movimientos.map((m) => m.externalId),
+        movimientos.map((m) => m.contraparteMpId),
+      ]
+    );
+    return rowCount;
+  },
+
   async borrar(id, userId) {
     const { rowCount } = await pool.query("DELETE FROM movements WHERE id = $1 AND user_id = $2", [id, userId]);
     return rowCount > 0;
@@ -55,10 +92,11 @@ export const movimientoRepository = {
   // Saldo total + ingresos y egresos del mes actual. El mes se calcula en hora
   // argentina: un movimiento del 31 a las 22 h (hora AR) ya es 1 del mes
   // siguiente en UTC, y sin AT TIME ZONE caería en el mes equivocado.
+  // Los movimientos 'internal' (reservas) no suman ni restan.
   async resumen(userId) {
     const { rows } = await pool.query(
       `SELECT
-         COALESCE(SUM(CASE WHEN type = 'income' THEN amount ELSE -amount END), 0) AS balance,
+         COALESCE(SUM(CASE type WHEN 'income' THEN amount WHEN 'expense' THEN -amount ELSE 0 END), 0) AS balance,
          COALESCE(SUM(amount) FILTER (WHERE type = 'income' AND es_este_mes), 0) AS month_income,
          COALESCE(SUM(amount) FILTER (WHERE type = 'expense' AND es_este_mes), 0) AS month_expense
        FROM (

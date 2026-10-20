@@ -13,6 +13,12 @@ export function errorHandler(err, req, res, next) {
     return res.status(err.statusCode).json({ error: err.message });
   }
 
+  // Errores 5xx con mensaje pensado para el usuario (por ejemplo, 502 cuando
+  // Mercado Pago no responde). Ya se loguearon donde se crearon.
+  if (err instanceof ErrorHttp) {
+    return res.status(err.statusCode).json({ error: err.message });
+  }
+
   console.error(`Error no controlado en ${req.method} ${req.originalUrl}:`, err);
   res.status(500).json({ error: "Ocurrió un error en el servidor" });
 }

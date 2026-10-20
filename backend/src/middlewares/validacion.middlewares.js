@@ -72,6 +72,9 @@ export function validarCategoria(req, res, next) {
 // ---------- movimientos ----------
 
 const TIPOS_MOVIMIENTO = ["income", "expense"];
+// Al editar se acepta también 'internal' (reservas de MP): la app reenvía el
+// tipo tal cual. El service se encarga de que no se cambie ni se use en uno manual.
+const TIPOS_MOVIMIENTO_EDICION = [...TIPOS_MOVIMIENTO, "internal"];
 const DESCRIPCION_MAX_CARACTERES = 200;
 
 // Hasta 12 dígitos enteros y 2 decimales: lo que entra en NUMERIC(14,2).
@@ -96,11 +99,11 @@ function esFechaValida(fecha) {
   return calendario.getUTCFullYear() === anio && calendario.getUTCMonth() === mes - 1 && calendario.getUTCDate() === dia;
 }
 
-export function validarMovimiento(req, res, next) {
+const crearValidadorMovimiento = (tiposPermitidos) => (req, res, next) => {
   const { tipo, monto, fecha, descripcion, categoriaId } = req.body ?? {};
 
-  if (!TIPOS_MOVIMIENTO.includes(tipo)) {
-    return next(new ErrorHttp(400, "El tipo debe ser 'income' o 'expense'"));
+  if (!tiposPermitidos.includes(tipo)) {
+    return next(new ErrorHttp(400, `El tipo debe ser ${tiposPermitidos.map((t) => `'${t}'`).join(" o ")}`));
   }
   if (!esMontoValido(monto)) {
     return next(new ErrorHttp(400, "El monto debe ser un número mayor a 0, con hasta 2 decimales y 12 cifras enteras"));
@@ -118,5 +121,32 @@ export function validarMovimiento(req, res, next) {
     return next(new ErrorHttp(400, "La categoría elegida no existe"));
   }
 
+  next();
+};
+
+export const validarMovimiento = crearValidadorMovimiento(TIPOS_MOVIMIENTO);
+export const validarEdicionMovimiento = crearValidadorMovimiento(TIPOS_MOVIMIENTO_EDICION);
+
+// ---------- Mercado Pago ----------
+
+// Solo se vuelve a la app: exp:// (Expo Go, desarrollo) o capi:// (app instalada).
+// Cualquier otra cosa se rechaza para que el callback no sirva de "open
+// redirect" (mandar al usuario a un sitio ajeno con apariencia de Capi).
+const ESQUEMAS_RETORNO = ["exp:", "capi:"];
+const RETURN_URL_MAX_CARACTERES = 500;
+
+function esReturnUrlValida(valor) {
+  if (typeof valor !== "string" || valor.length > RETURN_URL_MAX_CARACTERES) return false;
+  try {
+    return ESQUEMAS_RETORNO.includes(new URL(valor).protocol);
+  } catch {
+    return false;
+  }
+}
+
+export function validarReturnUrl(req, res, next) {
+  if (!esReturnUrlValida(req.query.returnUrl)) {
+    return next(new ErrorHttp(400, "returnUrl tiene que ser una URL de la app (exp:// o capi://)"));
+  }
   next();
 }

@@ -195,20 +195,48 @@ Notas:
 **3b — Back**
 - Primero: verificar que un token obtenido por OAuth devuelve en `/v1/payments/search` lo mismo que el token de la aplicación (ingresos, transferencias MP, reservas). Si no, frenar y replantear.
   - [x] Verificado (20/10/2026, cuenta real). Detalle en "Fuentes de datos".
-- OAuth de MP: URL de autorización con `state` (y PKCE si se puede), callback fijo registrado en la app "Capi" de MP, intercambio del `code` por access token (180 días) y refresh token (scope `offline_access`).
-- Tokens guardados **encriptados** en la base con `crypto` de Node (clave en `.env`). Renovación automática con el refresh token antes de que venzan.
-- Desconectar: se borran los tokens; los movimientos importados quedan.
-- Sincronizar: primera vez, últimos 5 días; después, desde la última sincronización. Sin duplicar: ID del pago de MP como ID externo (`UNIQUE` por usuario + fuente + ID externo).
+- OAuth de MP: callback fijo registrado en la app "Capi" de MP, intercambio del `code` por access token (180 días) y refresh token (scope `offline_access`).
+  - `GET /api/mp/conectar?returnUrl=...` (con sesión) → `{ url }` de `auth.mercadopago.com/authorization` (`client_id`, `response_type=code`, `platform_id=mp`, `redirect_uri`, `state`).
+  - `state` = JWT firmado con `JWT_SECRET` (`{ userId, returnUrl }`, audiencia `mp-oauth`, vence en 10 min). Sin PKCE: el back es cliente confidencial (tiene `client_secret`).
+  - `returnUrl`: solo `exp://` (Expo Go) o `capi://` (app instalada); otra cosa → 400 (evita open redirect).
+  - `GET /api/mp/callback` (sin sesión, lo llama MP): verifica el `state`, canjea el `code` (`POST api.mercadopago.com/oauth/token`), guarda la conexión y redirige a `returnUrl?mp=ok` o `?mp=error`. `state` inválido o vencido → 400 en texto. Nunca se loguean tokens ni `code`.
+  - `GET /api/mp/estado` → `{ conectado, ultimaSincronizacion }`.
+  - `DELETE /api/mp/conexion` → 204. Borra la conexión; los movimientos importados quedan.
+- Tabla `mp_connections` (una fila por usuario; al reconectar se reemplaza y vuelve a ser "primera sincronización"). Tokens cifrados con AES-256-GCM (`crypto` de Node), clave `MP_TOKEN_KEY` (32 bytes en hex), formato `iv.tag.cifrado` en base64.
+- `POST /api/mp/sincronizar` (con sesión) → `{ importados, ultimaSincronizacion }`.
+  - Sin conexión → 409. Token/refresh inválido o revocado → 409 "Volvé a conectarla". MP caído o timeout (15 s) → 502.
+  - Si al access token le quedan menos de 7 días, se renueva antes con el refresh token (se guardan los dos nuevos: MP rota el refresh token).
+  - Rango (por fecha de aprobación): primera vez, últimos 5 días; después, desde `last_synced_at` − 1 día. Pagina `/v1/payments/search` de a 100 hasta traer todo.
+  - Inserta con `ON CONFLICT DO NOTHING` (no duplica ni pisa ediciones), categoría null. `last_synced_at` = momento en que arrancó; se guarda en la misma transacción que los movimientos.
+  - Fecha: `date_approved` (si no viene, `date_created`).
+  - Monto: ingreso → `transaction_details.net_received_amount` (neto de retenciones); egreso → `transaction_details.total_paid_amount`; interno → `transaction_amount`. Si el campo falta o es 0, `transaction_amount`.
 - Mapeo al importar:
   - Solo pagos con `status: "approved"`. Rechazados, cancelados y devoluciones no se importan (devoluciones: más adelante).
   - Regla general: `payer_id` == yo → egreso; `collector_id` == yo → ingreso. Vale para `money_transfer`, `account_fund`, `regular_payment` y `recurring_payment`.
   - Excepción `account_fund` (CVU): `payer` y `collector` son los dos yo → siempre ingreso, sin persona.
   - `money_transfer`: guarda el ID de MP de la contraparte.
   - `regular_payment` / `recurring_payment`: sin contraparte (es un comercio); descripción = `description`.
-  - `partition_transfer` → `internal`, descripción "A reserva: <nombre>" (`AM-to-POT`) / "Desde reserva: <nombre>" (`POT-to-AM`).
-- `movements`: `source` suma `'mp_api'`, `type` suma `'internal'` (no suma ni resta en saldo ni en ingresos/egresos), columnas nuevas de ID externo y ID de MP de la contraparte (`ALTER TABLE`).
-- Movimientos de MP: se editan categoría y descripción, el monto no.
-- La sincronización no pisa ediciones manuales.
+  - `partition_transfer` → `internal`, descripción "A reserva: <nombre>" (`AM-to-POT`) / "Desde reserva: <nombre>" (`POT-to-AM`). El branch se lee de `point_of_interaction.business_info.branch`.
+  - Otros `operation_type` → no se importan.
+- `movements`: `source` suma `'mp_api'`, `type` suma `'internal'` (aparece en la lista pero no suma ni resta en saldo ni en ingresos/egresos de `/api/inicio`), columnas `external_id` (TEXT) y `counterparty_mp_id` (BIGINT), `UNIQUE (user_id, source, external_id)`.
+- Movimientos de MP:
+  - `PUT`: solo cambian descripción y categoría. El body lleva tipo, monto y fecha iguales a los guardados; si cambian → 400. El PUT acepta tipo `internal` (para reenviar una reserva tal cual), pero un movimiento manual no puede ser `internal` → 400.
+  - `DELETE` → 409 "Los movimientos de Mercado Pago no se pueden borrar".
+  - Los DTO ya incluyen el origen (`origen`: `manual` / `mp_api`).
+- Variables nuevas (obligatorias en `env.js`): `MP_CLIENT_ID`, `MP_CLIENT_SECRET`, `MP_REDIRECT_URI`, `MP_TOKEN_KEY`.
+
+Checklist 3b:
+- [x] `schema.sql` actualizado (`mp_connections`, CHECKs nuevos, `external_id`, `counterparty_mp_id`, UNIQUE).
+- [x] Cifrado AES-256-GCM (`utils/cifrado.utils.js`) y `state` JWT (`utils/jwt.utils.js`).
+- [x] Cliente de MP con `fetch` nativo (`clients/mercadoPago.client.js`): URL de autorización, canje, renovación, búsqueda paginada.
+- [x] Mapeo de pagos (`utils/pagosMp.utils.js`), probado con pagos de ejemplo.
+- [x] Rutas `/api/mp`: conectar, callback, estado, conexión (DELETE), sincronizar.
+- [x] Reglas de PUT/DELETE para movimientos de MP; `internal` fuera del saldo y del resumen del mes.
+- [x] Variables nuevas en `env.js` y `.env.example`.
+- [ ] Correr la migración en Neon.
+- [ ] Cargar las variables en Vercel y en el `.env` local; deploy.
+- [ ] Probar en producción: conectar, estado, sincronizar, editar y borrar un movimiento de MP, desconectar.
+- [ ] Confirmar con pagos reales los campos de monto (`net_received_amount` / `total_paid_amount`) y de reservas (`business_info.branch`, nombres de la subpartición).
 
 **3c — App**
 - Librería nueva: `expo-web-browser` (abrir el login de MP y volver a la app).
@@ -292,3 +320,6 @@ Probado con Access Token de producción de la aplicación "Capi" (Checkout API) 
 - Borrar la URL de webhook.site de la configuración de webhooks de la aplicación "Capi" en MP.
 - Antes de diseñar algo que dependa de Mercado Pago, verificar qué datos da realmente la API.
 - **Antes de vender:** pasar Vercel de Hobby a Pro, y hacer que el rate limit funcione con varias instancias (hoy está en memoria y cada instancia de Vercel cuenta por separado).
+  - Rate limit en `POST /api/mp/sincronizar` (hoy se puede llamar sin límite y cada llamada le pega a MP).
+  - Atar el `state` de OAuth al dispositivo: hoy, si alguien logra que otra persona abra una URL de autorización generada con su sesión (y la autorice en MP), la cuenta de MP de esa persona queda conectada al usuario Capi del otro.
+  - Dos sincronizaciones simultáneas justo cuando toca renovar el token: la segunda usaría un refresh token ya rotado y pediría reconectar. Se evita con `SELECT ... FOR UPDATE` sobre la fila de `mp_connections`.
