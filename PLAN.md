@@ -128,7 +128,7 @@ Basada en la de AnimalPiletas, adaptada a Postgres y mobile.
   - [x] URL del back en `EXPO_PUBLIC_API_URL` (IP local de la PC en desarrollo).
   - [x] Probar en el iPhone con Expo Go contra el back local.
 
-### Etapa 2 — Movimientos manuales
+### Etapa 2 — Movimientos manuales ✅
 Hacen falta igual para el efectivo y definen la tabla de movimientos (ver "Tabla de movimientos").
 - Cargar (botón "+"), editar y borrar movimientos manuales: tipo (ingreso/egreso), monto, fecha, descripción y categoría opcional (sin elegir → "Sin categoría").
 - Lista de Movimientos.
@@ -174,7 +174,7 @@ Hacen falta igual para el efectivo y definen la tabla de movimientos (ver "Tabla
 - [x] Movimientos: agrupados por mes, tocar abre la edición, estado vacío.
 - [x] Inicio con `GET /api/inicio`; `src/mocks` borrado. "Ver todos" lleva a Movimientos; tocar un movimiento abre la edición.
 - [x] Ajustes → Categorías (Stack propio dentro de la pestaña): cantidad, renombrar y borrar con aviso de cuántos movimientos quedan "Sin categoría".
-- [ ] Probar en el iPhone con Expo Go contra el back local.
+- [x] Probar en el iPhone con Expo Go contra el back local.
 
 ### Etapa 3 — Carga automática desde la API de MP ⬅ actual
 Conexión por OAuth de MP (multiusuario). Sincronización por polling (ver "Fuentes de datos").
@@ -186,7 +186,7 @@ Hace falta una URL pública para el retorno de OAuth. (Primero se pensó en Koye
 - [x] Variables en el panel de Vercel: `DATABASE_URL` (string **pooled** de Neon, branch production, con `sslmode=verify-full`), `JWT_SECRET` y `NODE_ENV=production`.
 - [x] Misma base y mismo `JWT_SECRET` que en local: un token sacado en local sirve en producción y viceversa.
 - [x] URL de producción: https://capi-phi-sandy.vercel.app
-- [ ] Probar producción con curl: `GET /api/auth/actual` sin token → 401, login → token, `GET /api/inicio` y `GET /api/categorias` con datos reales, función corriendo en `gru1`.
+- [x] Probar producción con una cuenta de prueba (`prueba-<timestamp>@capi.test`): registro → 201 con las 10 categorías iniciales, login → token, `GET /api/auth/actual` sin token → 401 y con token → usuario, crear / listar / borrar un movimiento, `GET /api/inicio`. Todo corriendo en `gru1`.
 
 Notas:
 - El plan Hobby es solo para uso no comercial: si se vende la app, pasar a Pro.
@@ -194,11 +194,18 @@ Notas:
 
 **3b — Back**
 - Primero: verificar que un token obtenido por OAuth devuelve en `/v1/payments/search` lo mismo que el token de la aplicación (ingresos, transferencias MP, reservas). Si no, frenar y replantear.
+  - [x] Verificado (20/10/2026, cuenta real). Detalle en "Fuentes de datos".
 - OAuth de MP: URL de autorización con `state` (y PKCE si se puede), callback fijo registrado en la app "Capi" de MP, intercambio del `code` por access token (180 días) y refresh token (scope `offline_access`).
 - Tokens guardados **encriptados** en la base con `crypto` de Node (clave en `.env`). Renovación automática con el refresh token antes de que venzan.
 - Desconectar: se borran los tokens; los movimientos importados quedan.
 - Sincronizar: primera vez, últimos 5 días; después, desde la última sincronización. Sin duplicar: ID del pago de MP como ID externo (`UNIQUE` por usuario + fuente + ID externo).
-- Mapeo: `money_transfer` → ingreso/egreso según payer/collector, con el ID de MP de la contraparte; `account_fund` (CVU) → ingreso sin persona; `partition_transfer` → `internal`.
+- Mapeo al importar:
+  - Solo pagos con `status: "approved"`. Rechazados, cancelados y devoluciones no se importan (devoluciones: más adelante).
+  - Regla general: `payer_id` == yo → egreso; `collector_id` == yo → ingreso. Vale para `money_transfer`, `account_fund`, `regular_payment` y `recurring_payment`.
+  - Excepción `account_fund` (CVU): `payer` y `collector` son los dos yo → siempre ingreso, sin persona.
+  - `money_transfer`: guarda el ID de MP de la contraparte.
+  - `regular_payment` / `recurring_payment`: sin contraparte (es un comercio); descripción = `description`.
+  - `partition_transfer` → `internal`, descripción "A reserva: <nombre>" (`AM-to-POT`) / "Desde reserva: <nombre>" (`POT-to-AM`).
 - `movements`: `source` suma `'mp_api'`, `type` suma `'internal'` (no suma ni resta en saldo ni en ingresos/egresos), columnas nuevas de ID externo y ID de MP de la contraparte (`ALTER TABLE`).
 - Movimientos de MP: se editan categoría y descripción, el monto no.
 - La sincronización no pisa ediciones manuales.
@@ -211,7 +218,8 @@ Notas:
 - Pantallas nuevas (conectar MP en Ajustes, fila de movimiento interno): diseñarlas antes en Claude Design.
 
 ### Etapa 4 — Mails de MP en Gmail
-Pagos con QR/tarjeta y transferencias a bancos. Alcance a definir antes de arrancar.
+Solo transferencias a bancos (y pagos con tarjeta, si no aparecen en la API). Alcance a definir antes de arrancar.
+- Al importar mails, ignorar los "Tu pago fue aprobado" de pagos que ya vinieron por la API, para no duplicar.
 
 ### Después de las pantallas principales
 - **Face ID** (`expo-local-authentication`): pedirlo al abrir la app y al volver de segundo plano tras más de 1 minuto. La contraseña se pide solo si el token venció, se cerró sesión o falla Face ID. Requiere development build (Expo Go no soporta Face ID en iPhone).
@@ -229,14 +237,17 @@ Para usar Capi en el iPhone sin Expo Go ni cuenta de Apple, hasta pasar a la app
 ### API de Mercado Pago
 Probado con Access Token de producción de la aplicación "Capi" (Checkout API) contra `GET /v1/payments/search` y `GET /v1/payments/{id}`.
 
+**Token de OAuth (verificado, 20/10/2026):** trae lo mismo que el token de la aplicación. El canje del `code` devuelve access token por 180 días, scope con `offline_access` y `refresh_token`.
+
 | Movimiento | ¿Aparece? | Datos |
 |---|---|---|
 | Ingreso desde cuenta MP | Sí | `operation_type: "money_transfer"`, `sub_type: "INTRA_PSP"`. Persona: `payer.id` (ID de usuario MP, fijo), `payer.identification` (CUIT), `payer.email`. Sin nombre. |
 | Ingreso desde banco (CVU) | Sí, sin persona | `operation_type: "account_fund"`, `payment_method_id: "cvu"`, `sub_type: "INTER_PSP"`. El payer soy yo y `bank_info` viene en null. No se distingue un tercero de una cuenta propia. El detalle no trae más. |
 | Egreso a cuenta MP | Sí | `payer_id` (yo) y `collector.id` (la otra persona), sin email ni CUIT. |
-| Reservas | Sí | `operation_type: "partition_transfer"`, branch `"AM-to-POT"`, trae el nombre de la reserva. Movimiento interno. |
+| Reservas | Sí | `operation_type: "partition_transfer"`, en los dos sentidos: branch `"AM-to-POT"` (a reserva) y `"POT-to-AM"` (desde reserva). El nombre no viene en `description` (null) sino en `amounts.collector.transaction_destination.subpartition.name` / `amounts.payer.transaction_source.partitions[0].subpartition.name`. Movimiento interno. |
 | Egreso a banco (CBU) | No | — |
-| Pago con QR / tarjeta | No | — |
+| Pago con QR, comercios y suscripciones | Sí | `operation_type: "regular_payment"` (branch QR, Merchant Services, Marketplace, Virtual) o `"recurring_payment"`. `payer_id` (yo), `collector.id` (el comercio) y `description` con el comercio. |
+| Pago con tarjeta de crédito | Sin confirmar | No se vio todavía. |
 
 - Ingreso o egreso: si `collector_id` == yo → ingreso (persona en `payer.id`); si `payer_id` == yo → egreso (persona en `collector.id`).
 - El ID de usuario MP de una persona es el mismo cuando me paga y cuando le pago.
@@ -254,7 +265,7 @@ Probado con Access Token de producción de la aplicación "Capi" (Checkout API) 
   - El reenvío automático de mails también requiere permisos restringidos, así que no evita esto.
 
 ### Cobertura
-- La API cubre ingresos, transferencias dentro de MP y reservas. Los mails cubren pagos QR/tarjeta y transferencias a bancos. Ninguna fuente sola alcanza.
+- La API cubre ingresos, transferencias dentro de MP, reservas, pagos con QR/comercios y suscripciones. Los mails quedan para transferencias a bancos (y tarjeta, si no aparece en la API). Ninguna fuente sola alcanza.
 - Queda manual: el efectivo y quién mandó los ingresos desde bancos (entran solos, sin persona).
 - Rendimientos de MP: no aparecen en la API ni en los mails → **no se registran**.
 
@@ -276,6 +287,8 @@ Probado con Access Token de producción de la aplicación "Capi" (Checkout API) 
 ## Pendientes
 
 - Renovar el Access Token de MP (quedó expuesto en una captura).
+- [x] Regenerar el `client_secret` de MP (quedó expuesto en un chat). Hecho el 20/10/2026.
+- Etapa 4: definir cómo deduplicar mail ↔ API (cómo saber que un "Tu pago fue aprobado" ya vino por la API; no hay un ID en común). Se define en esa etapa.
 - Borrar la URL de webhook.site de la configuración de webhooks de la aplicación "Capi" en MP.
 - Antes de diseñar algo que dependa de Mercado Pago, verificar qué datos da realmente la API.
 - **Antes de vender:** pasar Vercel de Hobby a Pro, y hacer que el rate limit funcione con varias instancias (hoy está en memoria y cada instancia de Vercel cuenta por separado).
