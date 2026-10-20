@@ -22,18 +22,22 @@ export default function CategoriasScreen() {
   // La categoría se conserva al cerrar para que el contenido no cambie mientras la hoja o el diálogo se van.
   const [renombrando, setRenombrando] = useState({ visible: false, categoria: null });
   const [borrando, setBorrando] = useState({ visible: false, categoria: null });
+  // Fuera de las funciones a propósito: el React Compiler lee lo que usan las
+  // funciones durante el render, y al principio no hay categoría elegida (null).
+  const idRenombrando = renombrando.categoria?.id;
+  const idBorrando = borrando.categoria?.id;
 
   const cerrarRenombrar = () => setRenombrando((anterior) => ({ ...anterior, visible: false }));
   const cerrarBorrar = () => setBorrando((anterior) => ({ ...anterior, visible: false }));
 
   async function renombrar(nombre) {
-    await renombrarCategoria(renombrando.categoria.id, nombre);
+    await renombrarCategoria(idRenombrando, nombre);
     cerrarRenombrar();
     recargar();
   }
 
   async function borrar() {
-    await borrarCategoria(borrando.categoria.id);
+    await borrarCategoria(idBorrando);
     cerrarBorrar();
     recargar();
   }

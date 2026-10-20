@@ -40,6 +40,10 @@ export default function MovimientoScreen() {
   const { movimiento: movimientoParam } = useLocalSearchParams();
   const original = movimientoParam ? JSON.parse(movimientoParam) : null;
   const editando = Boolean(original);
+  // Fuera de las funciones a propósito: el React Compiler lee lo que usan las
+  // funciones durante el render para memorizarlas, y en modo crear "original" es null.
+  const idOriginal = original?.id;
+  const fechaOriginal = original?.fecha;
 
   const insets = useSafeAreaInsets();
   const { datos: categorias, error: errorCategorias, recargar: recargarCategorias } = useDatosAlEnfocar(listarCategorias);
@@ -56,6 +60,7 @@ export default function MovimientoScreen() {
   // "tipo" se conserva al cerrar para que el contenido no cambie mientras la hoja baja.
   const [hoja, setHoja] = useState({ visible: false, tipo: 'categoria' });
   const [confirmandoBorrado, setConfirmandoBorrado] = useState(false);
+  const idCategoria = categoria?.id ?? null;
   const montoRef = useRef(null);
   const descripcionRef = useRef(null);
 
@@ -99,14 +104,14 @@ export default function MovimientoScreen() {
     const datos = {
       tipo,
       monto: montoANumero(monto),
-      fecha: calcularFechaAEnviar(dia, original?.fecha),
+      fecha: calcularFechaAEnviar(dia, fechaOriginal),
       descripcion: descripcion.trim() || null,
-      categoriaId: categoria?.id ?? null,
+      categoriaId: idCategoria,
     };
 
     setEnviando(true);
     try {
-      if (editando) await actualizarMovimiento(original.id, datos);
+      if (editando) await actualizarMovimiento(idOriginal, datos);
       else await crearMovimiento(datos);
       router.back();
     } catch (error) {
@@ -116,7 +121,7 @@ export default function MovimientoScreen() {
   }
 
   async function borrar() {
-    await borrarMovimiento(original.id);
+    await borrarMovimiento(idOriginal);
     setConfirmandoBorrado(false);
     router.back();
   }
