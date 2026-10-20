@@ -1,7 +1,7 @@
 {
-  "name": "autocapital-backend",
+  "name": "Capi-backend",
   "version": "1.0.0",
-  "description": "API de Auto Capital: registro de ingresos y egresos",
+  "description": "API Capi: registro de ingresos y egresos",
   "main": "src/server.js",
   "type": "module",
   "engines": {
