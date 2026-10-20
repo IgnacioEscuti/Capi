@@ -10,7 +10,7 @@ import { rutaNoEncontrada, errorHandler } from "./middlewares/error.middlewares.
 const app = express();
 
 app.disable("x-powered-by");
-// Koyeb pone un proxy adelante: sin esto, el rate limit vería la IP del
+// Vercel pone un proxy adelante: sin esto, el rate limit vería la IP del
 // proxy y todos los usuarios compartirían el mismo contador.
 app.set("trust proxy", 1);
 

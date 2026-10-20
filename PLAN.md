@@ -128,7 +128,7 @@ Basada en la de AnimalPiletas, adaptada a Postgres y mobile.
   - [x] URL del back en `EXPO_PUBLIC_API_URL` (IP local de la PC en desarrollo).
   - [x] Probar en el iPhone con Expo Go contra el back local.
 
-### Etapa 2 — Movimientos manuales ⬅ siguiente
+### Etapa 2 — Movimientos manuales
 Hacen falta igual para el efectivo y definen la tabla de movimientos (ver "Tabla de movimientos").
 - Cargar (botón "+"), editar y borrar movimientos manuales: tipo (ingreso/egreso), monto, fecha, descripción y categoría opcional (sin elegir → "Sin categoría").
 - Lista de Movimientos.
@@ -150,13 +150,13 @@ Hacen falta igual para el efectivo y definen la tabla de movimientos (ver "Tabla
 
 #### 2a — Back de movimientos y categorías
 - [x] `schema.sql` con `categories`, `movements` y el índice.
-- [ ] Crear las tablas en Neon y correr el INSERT de categorías iniciales para los usuarios existentes (una sola vez).
+- [x] Crear las tablas en Neon y correr el INSERT de categorías iniciales para los usuarios existentes (una sola vez).
 - [x] Registro: usuario + 10 categorías iniciales en una transacción (`enTransaccion` en `config/database.js`). Lista en `config/categoriasIniciales.js`.
 - [x] `/api/categorias`: GET (con cantidad de movimientos, orden alfabético), POST, PATCH `/:id`, DELETE `/:id`. Duplicado → 409.
 - [x] `/api/movimientos`: GET (todos, más nuevo primero), POST, PUT `/:id`, DELETE `/:id`. Validación en middleware; el service verifica que la categoría sea del usuario (si no → 400).
 - [x] `GET /api/inicio`: saldo, ingresos/egresos del mes (hora argentina) y últimos 5.
 - [x] Todo filtrado por `user_id`; lo ajeno o inexistente → 404. DTOs con montos como número.
-- [ ] Probar con Thunder Client contra Neon.
+- [x] Probar con Thunder Client contra Neon.
 
 #### 2b — App (decisiones):
 - Formulario de movimiento: pantalla modal completa (`presentation: 'modal'`), la misma para crear y editar. Monto con teclado `decimal-pad` y formato es-AR mientras se escribe.
@@ -176,7 +176,7 @@ Hacen falta igual para el efectivo y definen la tabla de movimientos (ver "Tabla
 - [x] Ajustes → Categorías (Stack propio dentro de la pestaña): cantidad, renombrar y borrar con aviso de cuántos movimientos quedan "Sin categoría".
 - [ ] Probar en el iPhone con Expo Go contra el back local.
 
-### Etapa 3 — Carga automática desde la API de MP
+### Etapa 3 — Carga automática desde la API de MP ⬅ actual
 Conexión por OAuth de MP (multiusuario). Sincronización por polling (ver "Fuentes de datos").
 
 **3a — Deploy del back en Vercel**
