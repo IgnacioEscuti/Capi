@@ -240,7 +240,7 @@ Checklist 3b:
 - [x] Confirmar con pagos reales los campos de monto (`net_received_amount` / `total_paid_amount`) y de reservas (`business_info.branch`, nombres de la subpartición).
 - [x] Corregido tras la prueba real: egresos (`payer_id` / `collector.id`) y `branch` de reservas con texto de más.
 - [x] Probado en producción (cuenta de prueba): conectar, estado, sincronizar ×2 (9 → 0), movimientos, inicio (saldo sin `internal`), PUT de descripción 200 / monto y tipo 400, DELETE de MP 409, manual → `internal` 400, `returnUrl` inválida 400.
-- [ ] Deploy de la corrección y volver a probar: desconectar (204, movimientos quedan), sincronizar sin conexión 409, reconectar y sincronizar (deben entrar los egresos y "A reserva: …").
+- [x] Deploy de la corrección y volver a probar: desconectar (204, movimientos quedan), sincronizar sin conexión 409, reconectar y sincronizar ×2 (11 egresos nuevos → 0). Saldo de `/api/inicio` = ingresos − egresos, sin la reserva.
 
 **3c — App**
 - Librería nueva: `expo-web-browser` (abrir el login de MP y volver a la app).
