@@ -5,10 +5,18 @@ import MensajeError from './MensajeError';
 import { obtenerMensajeDeError } from '@/services/api';
 import { colores, espaciado, fuentes, radios, tipografia } from '@/theme';
 
-// Confirmación de una acción destructiva (borrar). "onConfirmar" es async:
+// Confirmación de una acción destructiva (borrar, desconectar). "onConfirmar" es async:
 // el diálogo muestra la carga y, si falla, el error sin cerrarse.
 // Si sale bien, el que lo abrió se encarga de cerrarlo (visible = false).
-export default function DialogoConfirmacion({ visible, titulo, children, textoConfirmar, onConfirmar, onCancelar }) {
+export default function DialogoConfirmacion({
+  visible,
+  titulo,
+  children,
+  textoConfirmar,
+  icono = 'delete-outline',
+  onConfirmar,
+  onCancelar,
+}) {
   const [cargando, setCargando] = useState(false);
   const [error, setError] = useState('');
 
@@ -35,7 +43,7 @@ export default function DialogoConfirmacion({ visible, titulo, children, textoCo
       <View style={styles.velo}>
         <View style={styles.tarjeta} accessibilityRole="alert">
           <View style={styles.icono}>
-            <MaterialIcons name="delete-outline" size={24} color={colores.egreso} />
+            <MaterialIcons name={icono} size={24} color={colores.egreso} />
           </View>
 
           <View style={styles.textos}>

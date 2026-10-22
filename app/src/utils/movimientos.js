@@ -1,6 +1,12 @@
 import { esMismoDia, formatearMesAnio } from './formato';
 
-export const NOMBRE_TIPO = { income: 'Ingreso', expense: 'Egreso' };
+export const NOMBRE_TIPO = { income: 'Ingreso', expense: 'Egreso', internal: 'Movimiento interno' };
+
+// Reservas de Mercado Pago: aparecen en la lista pero no suman ni restan.
+export const esInterno = ({ tipo }) => tipo === 'internal';
+
+// Importado de Mercado Pago: tipo, monto y fecha no se pueden cambiar ni se puede borrar.
+export const esDeMercadoPago = ({ origen }) => origen === 'mp_api';
 
 // Sin descripción: el nombre de la categoría o, si tampoco hay, "Ingreso"/"Egreso".
 export function obtenerTituloMovimiento({ descripcion, categoria, tipo }) {

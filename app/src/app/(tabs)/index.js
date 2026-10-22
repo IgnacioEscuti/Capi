@@ -1,12 +1,15 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { Link } from 'expo-router';
 import { Fragment } from 'react';
-import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import FilaMovimiento, { SeparadorMovimientos } from '@/components/FilaMovimiento';
+import IndicadorSincronizacion from '@/components/IndicadorSincronizacion';
 import MensajeError from '@/components/MensajeError';
 import Resplandor from '@/components/Resplandor';
 import { useAuth } from '@/context/AuthContext';
+import { useSincronizacion } from '@/context/SincronizacionContext';
+import { useActualizarDeslizando } from '@/hooks/useActualizarDeslizando';
 import { useDatosAlEnfocar } from '@/hooks/useDatosAlEnfocar';
 import { obtenerInicio } from '@/services/inicio.service';
 import { colores, espaciado, fuentes, radios, tipografia } from '@/theme';
@@ -23,13 +26,16 @@ import { abrirFormularioMovimiento } from '@/utils/navegacion';
 export default function InicioScreen() {
   const { usuario } = useAuth();
   const insets = useSafeAreaInsets();
-  const { datos, error } = useDatosAlEnfocar(obtenerInicio);
+  const { version } = useSincronizacion();
+  const { datos, error, recargar } = useDatosAlEnfocar(obtenerInicio, version);
+  const { actualizando, actualizar } = useActualizarDeslizando(recargar);
 
   return (
     <ScrollView
       style={styles.pantalla}
       contentContainerStyle={[styles.contenido, { paddingTop: insets.top + 12 }]}
-      showsVerticalScrollIndicator={false}>
+      showsVerticalScrollIndicator={false}
+      refreshControl={<RefreshControl refreshing={actualizando} onRefresh={actualizar} tintColor={colores.texto2} />}>
       <Resplandor />
 
       <View style={styles.encabezado}>
@@ -43,6 +49,8 @@ export default function InicioScreen() {
           <Text style={styles.iniciales}>{obtenerIniciales(usuario.nombre)}</Text>
         </View>
       </View>
+
+      <IndicadorSincronizacion oculto={actualizando} style={styles.sincronizando} />
 
       {error !== '' && (
         <View style={styles.error}>
@@ -325,6 +333,9 @@ const styles = StyleSheet.create({
   sinMovimientos: {
     padding: 20,
     textAlign: 'center',
+  },
+  sincronizando: {
+    paddingTop: 24,
   },
   error: {
     paddingTop: 24,

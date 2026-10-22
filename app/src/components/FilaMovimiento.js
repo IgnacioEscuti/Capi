@@ -1,29 +1,33 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import IconoCategoria from './IconoCategoria';
-import { formatearFechaMovimiento, formatearPesosConSigno } from '@/utils/formato';
-import { obtenerMontoConSigno, obtenerTituloMovimiento } from '@/utils/movimientos';
+import { formatearFechaMovimiento, formatearPesos, formatearPesosConSigno } from '@/utils/formato';
+import { esInterno, NOMBRE_TIPO, obtenerMontoConSigno, obtenerTituloMovimiento } from '@/utils/movimientos';
 import { colores, fuentes, tipografia } from '@/theme';
 
 export default function FilaMovimiento({ movimiento, onPress }) {
   const { categoria, fecha, tipo } = movimiento;
   const titulo = obtenerTituloMovimiento(movimiento);
+  // Movimiento interno (reserva de MP): gris y sin signo, porque no cambia el saldo.
+  const interno = esInterno(movimiento);
+  const subtitulo = interno ? NOMBRE_TIPO.internal : (categoria?.nombre ?? 'Sin categoría');
+  const colorMonto = interno ? colores.texto2 : tipo === 'income' ? colores.ingreso : colores.egreso;
 
   return (
     <Pressable
       onPress={onPress}
       accessibilityRole="button"
       style={({ pressed }) => [styles.fila, pressed && styles.filaPresionada]}>
-      <IconoCategoria icono={categoria?.icono} />
+      <IconoCategoria icono={interno ? 'savings' : categoria?.icono} />
       <View style={styles.textos}>
         <Text style={styles.titulo} numberOfLines={2}>
           {titulo}
         </Text>
         <Text style={styles.meta} numberOfLines={1}>
-          {categoria?.nombre ?? 'Sin categoría'} · {formatearFechaMovimiento(new Date(fecha))}
+          {subtitulo} · {formatearFechaMovimiento(new Date(fecha))}
         </Text>
       </View>
-      <Text style={[styles.monto, { color: tipo === 'income' ? colores.ingreso : colores.egreso }]}>
-        {formatearPesosConSigno(obtenerMontoConSigno(movimiento))}
+      <Text style={[styles.monto, { color: colorMonto }]}>
+        {interno ? formatearPesos(movimiento.monto) : formatearPesosConSigno(obtenerMontoConSigno(movimiento))}
       </Text>
     </Pressable>
   );

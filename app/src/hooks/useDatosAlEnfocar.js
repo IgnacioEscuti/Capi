@@ -6,7 +6,9 @@ import { obtenerMensajeDeError } from '@/services/api';
 // de otra pestaña o al cerrarse el formulario modal). Mientras recarga se
 // siguen mostrando los datos anteriores: "datos" es null solo la primera vez.
 // "pedirDatos" tiene que ser una función estable (una del service, no una flecha nueva en cada render).
-export function useDatosAlEnfocar(pedirDatos) {
+// "version" (opcional): si cambia mientras la pantalla está visible, se vuelven a pedir
+// los datos (ej. cuando entran movimientos nuevos de Mercado Pago).
+export function useDatosAlEnfocar(pedirDatos, version = 0) {
   const [datos, setDatos] = useState(null);
   const [error, setError] = useState('');
   const [pedido, setPedido] = useState(0);
@@ -29,7 +31,7 @@ export function useDatosAlEnfocar(pedirDatos) {
       return () => {
         vigente = false;
       };
-    }, [pedirDatos, pedido])
+    }, [pedirDatos, pedido, version])
   );
 
   // Para volver a pedir los datos sin salir de la pantalla (después de renombrar o borrar).

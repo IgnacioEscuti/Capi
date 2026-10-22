@@ -23,6 +23,7 @@ export const colores = {
   sobreAcento: '#1F0D00',
 
   ingreso: '#3DDC84',
+  ingresoSuave: 'rgba(61,220,132,0.16)',
   egreso: '#FF4D5E',
   egresoSuave: 'rgba(255,77,94,0.16)',
   egresoFondo: 'rgba(255,77,94,0.06)',

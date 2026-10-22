@@ -52,24 +52,30 @@ export default function CampoFormulario({ ref, icono, etiqueta, error, ayuda, es
 }
 
 // Misma apariencia que el campo, pero en vez de escribir se toca para elegir (Fecha, Categoría).
-export function CampoBoton({ icono, etiqueta, valor, valorAtenuado = false, onPress }) {
+// "bloqueado": se muestra con un candado y no se puede tocar (ej. la fecha de un movimiento de MP).
+export function CampoBoton({ icono, etiqueta, valor, valorAtenuado = false, bloqueado = false, onPress }) {
   return (
     <Pressable
       onPress={onPress}
+      disabled={bloqueado}
       accessibilityRole="button"
-      accessibilityLabel={`${etiqueta}: ${valor}`}
+      accessibilityState={{ disabled: bloqueado }}
+      accessibilityLabel={`${etiqueta}: ${valor}${bloqueado ? ', no se puede cambiar' : ''}`}
       style={({ pressed }) => [styles.contenedor, pressed && styles.contenedorPresionado]}>
       <View style={styles.fila}>
         <View style={[styles.icono, { backgroundColor: colores.elevado }]}>
           <MaterialIcons name={icono} size={21} color={colores.texto2} />
         </View>
         <View style={styles.textos}>
-          <Text style={styles.etiqueta}>{etiqueta}</Text>
-          <Text style={[styles.input, valorAtenuado && styles.valorAtenuado]} numberOfLines={1}>
+          <View style={styles.filaEtiqueta}>
+            <Text style={styles.etiqueta}>{etiqueta}</Text>
+            {bloqueado && <MaterialIcons name="lock-outline" size={13} color={colores.texto3} />}
+          </View>
+          <Text style={[styles.input, (valorAtenuado || bloqueado) && styles.valorAtenuado]} numberOfLines={1}>
             {valor}
           </Text>
         </View>
-        <MaterialIcons name="chevron-right" size={24} color={colores.texto3} />
+        {!bloqueado && <MaterialIcons name="chevron-right" size={24} color={colores.texto3} />}
       </View>
     </Pressable>
   );
@@ -121,6 +127,11 @@ const styles = StyleSheet.create({
   textos: {
     flex: 1,
     gap: 2,
+  },
+  filaEtiqueta: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
   },
   etiqueta: {
     fontFamily: fuentes.medio,

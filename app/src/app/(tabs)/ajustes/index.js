@@ -5,15 +5,24 @@ import PantallaSeccion from '@/components/PantallaSeccion';
 import { useAuth } from '@/context/AuthContext';
 import { useDatosAlEnfocar } from '@/hooks/useDatosAlEnfocar';
 import { listarCategorias } from '@/services/categoria.service';
+import { obtenerEstadoMp } from '@/services/mercadoPago.service';
 import { colores, fuentes, radios } from '@/theme';
 
 export default function AjustesScreen() {
   const { logout } = useAuth();
   const { datos: categorias } = useDatosAlEnfocar(listarCategorias);
+  const { datos: estadoMp } = useDatosAlEnfocar(obtenerEstadoMp);
 
   return (
     <PantallaSeccion titulo="Ajustes">
       <View style={styles.filas}>
+        <FilaAjuste
+          icono="swap-horiz"
+          titulo="Mercado Pago"
+          detalle={estadoMp ? (estadoMp.conectado ? 'Conectado' : 'Sin conectar') : undefined}
+          colorPunto={estadoMp && (estadoMp.conectado ? colores.ingreso : colores.texto3)}
+          onPress={() => router.push('/ajustes/mercado-pago')}
+        />
         <FilaAjuste
           icono="sell"
           titulo="Categorías"
@@ -26,7 +35,8 @@ export default function AjustesScreen() {
   );
 }
 
-function FilaAjuste({ icono, titulo, detalle, destructiva = false, onPress }) {
+// "colorPunto": punto de estado antes del detalle (ej. verde "Conectado").
+function FilaAjuste({ icono, titulo, detalle, colorPunto, destructiva = false, onPress }) {
   return (
     <View style={styles.tarjeta}>
       <Pressable
@@ -39,6 +49,7 @@ function FilaAjuste({ icono, titulo, detalle, destructiva = false, onPress }) {
         <Text style={[styles.texto, destructiva && styles.textoDestructivo]}>{titulo}</Text>
         {!destructiva && (
           <>
+            {colorPunto && <View style={[styles.punto, { backgroundColor: colorPunto }]} />}
             {detalle && <Text style={styles.detalle}>{detalle}</Text>}
             <MaterialIcons name="chevron-right" size={24} color={colores.texto3} />
           </>
@@ -85,6 +96,12 @@ const styles = StyleSheet.create({
   },
   textoDestructivo: {
     color: colores.egreso,
+  },
+  punto: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    marginRight: -6,
   },
   detalle: {
     fontFamily: fuentes.regular,

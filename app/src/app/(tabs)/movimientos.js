@@ -1,10 +1,13 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { Fragment } from 'react';
-import { ActivityIndicator, FlatList, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, FlatList, RefreshControl, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import FilaMovimiento, { SeparadorMovimientos } from '@/components/FilaMovimiento';
+import IndicadorSincronizacion from '@/components/IndicadorSincronizacion';
 import MensajeError from '@/components/MensajeError';
 import Resplandor from '@/components/Resplandor';
+import { useSincronizacion } from '@/context/SincronizacionContext';
+import { useActualizarDeslizando } from '@/hooks/useActualizarDeslizando';
 import { useDatosAlEnfocar } from '@/hooks/useDatosAlEnfocar';
 import { listarMovimientos } from '@/services/movimiento.service';
 import { colores, espaciado, fuentes, radios, tipografia } from '@/theme';
@@ -13,7 +16,9 @@ import { abrirFormularioMovimiento } from '@/utils/navegacion';
 
 export default function MovimientosScreen() {
   const insets = useSafeAreaInsets();
-  const { datos: movimientos, error } = useDatosAlEnfocar(listarMovimientos);
+  const { version } = useSincronizacion();
+  const { datos: movimientos, error, recargar } = useDatosAlEnfocar(listarMovimientos, version);
+  const { actualizando, actualizar } = useActualizarDeslizando(recargar);
   const grupos = movimientos ? agruparPorMes(movimientos) : [];
 
   return (
@@ -26,9 +31,11 @@ export default function MovimientosScreen() {
         renderItem={({ item }) => <GrupoMes grupo={item} />}
         contentContainerStyle={[styles.contenido, { paddingTop: insets.top + 12 }]}
         showsVerticalScrollIndicator={false}
+        refreshControl={<RefreshControl refreshing={actualizando} onRefresh={actualizar} tintColor={colores.texto2} />}
         ListHeaderComponent={
           <View style={styles.encabezado}>
             <Text style={styles.titulo}>Movimientos</Text>
+            <IndicadorSincronizacion oculto={actualizando} />
             <MensajeError mensaje={error} />
           </View>
         }

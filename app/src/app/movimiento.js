@@ -1,3 +1,4 @@
+import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import DateTimePicker, { DateTimePickerAndroid } from '@react-native-community/datetimepicker';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useRef, useState } from 'react';
@@ -20,6 +21,7 @@ import { colores, espaciado, fuentes, radios, tipografia } from '@/theme';
 import { agruparMiles, formatearFechaLarga, formatearPesosConSigno } from '@/utils/formato';
 import {
   calcularFechaAEnviar,
+  esDeMercadoPago,
   limpiarMonto,
   montoANumero,
   NOMBRE_TIPO,
@@ -40,10 +42,14 @@ export default function MovimientoScreen() {
   const { movimiento: movimientoParam } = useLocalSearchParams();
   const original = movimientoParam ? JSON.parse(movimientoParam) : null;
   const editando = Boolean(original);
+  // Importado de MP: tipo, monto y fecha bloqueados (vienen de MP) y no se puede borrar.
+  const deMp = editando && esDeMercadoPago(original);
   // Fuera de las funciones a propósito: el React Compiler lee lo que usan las
   // funciones durante el render para memorizarlas, y en modo crear "original" es null.
   const idOriginal = original?.id;
   const fechaOriginal = original?.fecha;
+  const tipoOriginal = original?.tipo;
+  const montoOriginal = original?.monto;
 
   const insets = useSafeAreaInsets();
   const { datos: categorias, error: errorCategorias, recargar: recargarCategorias } = useDatosAlEnfocar(listarCategorias);
@@ -101,13 +107,11 @@ export default function MovimientoScreen() {
     setErrorGeneral('');
     if (tieneErrores(erroresValidacion)) return;
 
-    const datos = {
-      tipo,
-      monto: montoANumero(monto),
-      fecha: calcularFechaAEnviar(dia, fechaOriginal),
-      descripcion: descripcion.trim() || null,
-      categoriaId: idCategoria,
-    };
+    const descripcionYCategoria = { descripcion: descripcion.trim() || null, categoriaId: idCategoria };
+    // En los de MP el back exige tipo, monto y fecha iguales a los guardados: se reenvían tal cual.
+    const datos = deMp
+      ? { tipo: tipoOriginal, monto: montoOriginal, fecha: fechaOriginal, ...descripcionYCategoria }
+      : { tipo, monto: montoANumero(monto), fecha: calcularFechaAEnviar(dia, fechaOriginal), ...descripcionYCategoria };
 
     setEnviando(true);
     try {
@@ -145,11 +149,14 @@ export default function MovimientoScreen() {
           <BotonTexto titulo="Cancelar" color={colores.acento} onPress={() => router.back()} />
         </View>
 
-        <SelectorTipo tipo={tipo} onCambiar={setTipo} />
+        {deMp && <AvisoMercadoPago />}
+
+        <SelectorTipo tipo={tipo} bloqueado={deMp} onCambiar={setTipo} />
 
         <EntradaMonto
           ref={montoRef}
           monto={monto}
+          bloqueado={deMp}
           enfocado={montoEnfocado}
           error={errores.monto}
           autoFocus={!editando}
@@ -162,7 +169,13 @@ export default function MovimientoScreen() {
         />
 
         <TarjetaCampos>
-          <CampoBoton icono="calendar-today" etiqueta="Fecha" valor={formatearFechaLarga(dia)} onPress={abrirFecha} />
+          <CampoBoton
+            icono="calendar-today"
+            etiqueta="Fecha"
+            valor={formatearFechaLarga(dia)}
+            bloqueado={deMp}
+            onPress={abrirFecha}
+          />
           <SeparadorCampos />
           <CampoFormulario
             ref={descripcionRef}
@@ -198,7 +211,7 @@ export default function MovimientoScreen() {
             cargando={enviando}
             onPress={guardar}
           />
-          {editando && (
+          {editando && !deMp && (
             <BotonTexto
               titulo="Borrar movimiento"
               icono="delete-outline"
@@ -239,7 +252,7 @@ export default function MovimientoScreen() {
         )}
       </HojaInferior>
 
-      {editando && (
+      {editando && !deMp && (
         <DialogoConfirmacion
           visible={confirmandoBorrado}
           titulo="¿Borrar este movimiento?"
@@ -257,22 +270,43 @@ export default function MovimientoScreen() {
   );
 }
 
-function SelectorTipo({ tipo, onCambiar }) {
+function AvisoMercadoPago() {
+  return (
+    <View style={styles.avisoMp}>
+      <View style={styles.iconoAvisoMp}>
+        <MaterialIcons name="swap-horiz" size={22} color={colores.texto2} />
+      </View>
+      <Text style={styles.textoAvisoMp}>
+        <Text style={styles.textoAvisoMpResaltado}>Importado de Mercado Pago.</Text> Tipo, monto y fecha no se pueden
+        cambiar.
+      </Text>
+    </View>
+  );
+}
+
+const COLOR_PUNTO_TIPO = { income: colores.ingreso, expense: colores.egreso, internal: colores.texto2 };
+
+// Bloqueado (movimiento de MP): no se puede tocar y el activo lleva un candado.
+// Un movimiento interno solo existe en MP, así que se muestra como única opción.
+function SelectorTipo({ tipo, bloqueado = false, onCambiar }) {
+  const opciones = tipo === 'internal' ? ['internal'] : ['income', 'expense'];
+
   return (
     <View style={styles.selectorTipo} accessibilityRole="radiogroup">
-      {['income', 'expense'].map((opcion) => {
+      {opciones.map((opcion) => {
         const activo = tipo === opcion;
-        const colorPunto = opcion === 'income' ? colores.ingreso : colores.egreso;
 
         return (
           <Pressable
             key={opcion}
             onPress={() => onCambiar(opcion)}
+            disabled={bloqueado}
             accessibilityRole="radio"
-            accessibilityState={{ selected: activo }}
-            style={[styles.opcionTipo, activo && styles.opcionTipoActiva]}>
-            <View style={[styles.puntoTipo, { backgroundColor: activo ? colorPunto : colores.texto3 }]} />
+            accessibilityState={{ selected: activo, disabled: bloqueado }}
+            style={[styles.opcionTipo, activo && styles.opcionTipoActiva, bloqueado && !activo && styles.atenuado]}>
+            <View style={[styles.puntoTipo, { backgroundColor: activo ? COLOR_PUNTO_TIPO[opcion] : colores.texto3 }]} />
             <Text style={[styles.textoTipo, activo && styles.textoTipoActivo]}>{NOMBRE_TIPO[opcion]}</Text>
+            {bloqueado && activo && <MaterialIcons name="lock-outline" size={15} color={colores.texto2} />}
           </Pressable>
         );
       })}
@@ -282,15 +316,19 @@ function SelectorTipo({ tipo, onCambiar }) {
 
 // El TextInput real está oculto: guarda lo escrito ("12500,5") y abre el teclado.
 // Lo que se ve es el monto ya formateado ("$ 12.500,50"), con los centavos más chicos.
-function EntradaMonto({ ref, monto, enfocado, error, ...propsInput }) {
+// "bloqueado" (movimiento de MP): se ve con un candado y no abre el teclado.
+function EntradaMonto({ ref, monto, bloqueado = false, enfocado, error, ...propsInput }) {
   const [entero, decimales] = monto.split(',');
   const centavos = (decimales ?? '').padEnd(2, '0');
 
   return (
-    <Pressable onPress={() => ref.current?.focus()} style={styles.bloqueMonto} accessible={false}>
-      <Text style={styles.etiquetaMonto}>Monto</Text>
+    <Pressable onPress={() => ref.current?.focus()} disabled={bloqueado} style={styles.bloqueMonto} accessible={false}>
+      <View style={styles.filaEtiquetaMonto}>
+        <Text style={styles.etiquetaMonto}>Monto</Text>
+        {bloqueado && <MaterialIcons name="lock-outline" size={15} color={colores.texto2} />}
+      </View>
       <View style={styles.filaMonto}>
-        <Text style={styles.monto} numberOfLines={1} adjustsFontSizeToFit>
+        <Text style={[styles.monto, bloqueado && styles.montoBloqueado]} numberOfLines={1} adjustsFontSizeToFit>
           <Text style={styles.montoSigno}>$ </Text>
           <Text style={!entero && styles.montoVacio}>{entero ? agruparMiles(entero) : '0'}</Text>
           <Text style={styles.montoCentavos}>,{centavos}</Text>
@@ -305,6 +343,7 @@ function EntradaMonto({ ref, monto, enfocado, error, ...propsInput }) {
         style={styles.inputOculto}
         keyboardType="decimal-pad"
         keyboardAppearance="dark"
+        editable={!bloqueado}
         caretHidden
         accessibilityLabel="Monto"
         {...propsInput}
@@ -335,6 +374,39 @@ const styles = StyleSheet.create({
     fontFamily: fuentes.semibold,
     fontSize: 17,
     color: colores.texto,
+  },
+  avisoMp: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    marginTop: 16,
+    padding: 14,
+    borderRadius: radios.mensaje,
+    backgroundColor: colores.tarjeta,
+    borderWidth: 1,
+    borderColor: colores.borde,
+  },
+  iconoAvisoMp: {
+    width: 36,
+    height: 36,
+    borderRadius: radios.iconoCampo,
+    backgroundColor: colores.elevado,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  textoAvisoMp: {
+    flex: 1,
+    fontFamily: fuentes.regular,
+    fontSize: 14,
+    lineHeight: 20,
+    color: colores.texto2,
+  },
+  textoAvisoMpResaltado: {
+    fontFamily: fuentes.semibold,
+    color: colores.texto,
+  },
+  atenuado: {
+    opacity: 0.5,
   },
   selectorTipo: {
     flexDirection: 'row',
@@ -377,6 +449,11 @@ const styles = StyleSheet.create({
     paddingTop: 48,
     paddingBottom: 40,
   },
+  filaEtiquetaMonto: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
   etiquetaMonto: {
     fontFamily: fuentes.medio,
     fontSize: 15,
@@ -397,6 +474,9 @@ const styles = StyleSheet.create({
     fontFamily: fuentes.semibold,
     fontSize: 30,
     letterSpacing: 0,
+  },
+  montoBloqueado: {
+    color: colores.texto2,
   },
   montoVacio: {
     color: colores.texto3,

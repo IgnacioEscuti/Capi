@@ -15,6 +15,7 @@ App personal para registrar ingresos y egresos. Uso propio por ahora (quizás ve
 
 - **Front:** React Native + Expo.
 - Librerías de la app sumadas en la etapa 2: `@react-native-community/datetimepicker` (selector de fecha nativo).
+- Sumada en la etapa 3: `expo-web-browser` (login de Mercado Pago dentro de la app).
 - **Back:** Node + Express, Passport (local + jwt), bcryptjs. Deploy en **Vercel** (plan Hobby), ejecutado como Vercel Functions con Fluid compute.
 - **Base:** PostgreSQL en Neon, con el driver `pg` (SQL a mano, sin ORM).
 - Primera vez con React Native, Expo y PostgreSQL: explicar conceptos nuevos comparando con React web y MongoDB/Mongoose. No sumar tecnologías nuevas sin hablarlo.
@@ -248,6 +249,26 @@ Checklist 3b:
 - Sincronizar al abrir la app y con pull to refresh en Inicio y Movimientos.
 - Movimiento interno: gris, sin signo, descripción tipo "A reserva: Vacaciones" / "Desde reserva: Vacaciones".
 - Pantallas nuevas (conectar MP en Ajustes, fila de movimiento interno): diseñarlas antes en Claude Design.
+- Diseño: `docs/diseño/` (Mercado Pago · Sin conectar / Conectado, Error al conectar, Confirmar desconexión, Ajustes, Movimientos · con reservas / sincronizando, Inicio · sincronizando, Aviso de movimientos nuevos, Editar movimiento de Mercado Pago). Del diseño se tomó solo lo nuevo; navbar, Inicio, agrupado por mes y estructura del formulario quedan como estaban.
+
+Decisiones 3c:
+- La app usa el back de producción (`EXPO_PUBLIC_API_URL=https://capi-phi-sandy.vercel.app`): el callback de OAuth solo funciona ahí.
+- `returnUrl` = `Linking.createURL('/ajustes/mercado-pago')`: en Expo Go `exp://<ip>:8081/--/ajustes/mercado-pago`, en la app instalada `capi://ajustes/mercado-pago` (scheme `capi` ya estaba en `app.json`). El back acepta las dos.
+- `WebBrowser.openAuthSessionAsync`: en iOS el navegador se cierra solo al llegar a la `returnUrl` y devuelve la URL con `?mp=ok` / `?mp=error`. Error o cancelado → "No se pudo conectar".
+- Estado de sincronización compartido con un Context (`SincronizacionContext`) montado en el layout de las pestañas: se monta solo con sesión, así que sincroniza al abrir la app y al iniciar sesión. Expone `sincronizando`, `conectado`, `version` (sube cuando entran movimientos nuevos y las pantallas recargan) y el aviso temporal.
+- Una sola sincronización a la vez (si hay una en curso, se reutiliza).
+- `POST /api/mp/sincronizar` con timeout de 30 s (el general es 10 s).
+
+Checklist 3c:
+- [x] `expo-web-browser` instalado con `npx expo install`. `EXPO_PUBLIC_API_URL` de producción en `.env` y `.env.example`.
+- [x] `mercadoPago.service.js`: conectar, estado, desconectar, sincronizar.
+- [x] Ajustes: fila "Mercado Pago" con estado (punto verde "Conectado" / "Sin conectar") arriba de Categorías.
+- [x] Ajustes → Mercado Pago: sin conectar, conectado (última sincronización), error ("No se pudo conectar" + Reintentar), confirmación de desconectar.
+- [x] `SincronizacionContext`: sincroniza al abrir la app; 409 sin aviso; otro error → aviso chico; "N movimientos nuevos de Mercado Pago" y recarga de la pantalla.
+- [x] Pull to refresh (`RefreshControl`) en Inicio y Movimientos; "Sincronizando con Mercado Pago…" arriba de la lista.
+- [x] Fila de movimiento interno: alcancía (`savings`), gris, sin signo, subtítulo "Movimiento interno".
+- [x] Formulario de movimiento de MP: aviso "Importado de Mercado Pago…", tipo / monto / fecha con candado y deshabilitados, sin "Borrar"; al guardar reenvía tipo, monto y fecha originales.
+- [ ] Probar en el iPhone con Expo Go contra producción, conectando la cuenta real de MP.
 
 ### Etapa 4 — Mails de MP en Gmail
 Solo transferencias a bancos (y pagos con tarjeta, si no aparecen en la API). Alcance a definir antes de arrancar.

@@ -79,6 +79,18 @@ export function formatearFechaLarga(fecha) {
   return capitalizar(texto);
 }
 
+// "09:05"
+export function formatearHora(fecha) {
+  const dosCifras = (numero) => String(numero).padStart(2, '0');
+  return `${dosCifras(fecha.getHours())}:${dosCifras(fecha.getMinutes())}`;
+}
+
+// Para "Última sincronización: …": "hoy 12:45", "ayer 18:02" o "17 oct 09:30".
+export function formatearMomento(fecha) {
+  const dia = esHoy(fecha) ? 'hoy' : esAyer(fecha) ? 'ayer' : formatearFechaCorta(fecha);
+  return `${dia} ${formatearHora(fecha)}`;
+}
+
 // "Octubre 2026"
 export function formatearMesAnio(fecha) {
   return `${MESES[fecha.getMonth()]} ${fecha.getFullYear()}`;
