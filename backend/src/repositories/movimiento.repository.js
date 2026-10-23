@@ -66,10 +66,11 @@ export const movimientoRepository = {
     if (movimientos.length === 0) return 0;
 
     const { rowCount } = await db.query(
-      `INSERT INTO movements (user_id, type, amount, occurred_at, description, source, external_id, counterparty_mp_id)
-       SELECT $1, tipo, monto, fecha, descripcion, 'mp_api', external_id, contraparte
-       FROM unnest($2::text[], $3::numeric[], $4::timestamptz[], $5::text[], $6::text[], $7::bigint[])
-         AS m(tipo, monto, fecha, descripcion, external_id, contraparte)
+      `INSERT INTO movements (user_id, type, amount, occurred_at, description, source, external_id,
+                             counterparty_mp_id, counterparty_account_hash, counterparty_account_last4)
+       SELECT $1, tipo, monto, fecha, descripcion, 'mp_api', external_id, contraparte, cuenta_hash, cuenta_last4
+       FROM unnest($2::text[], $3::numeric[], $4::timestamptz[], $5::text[], $6::text[], $7::bigint[], $8::text[], $9::text[])
+         AS m(tipo, monto, fecha, descripcion, external_id, contraparte, cuenta_hash, cuenta_last4)
        ON CONFLICT (user_id, source, external_id) DO NOTHING`,
       [
         userId,
@@ -79,6 +80,9 @@ export const movimientoRepository = {
         movimientos.map((m) => m.descripcion),
         movimientos.map((m) => m.externalId),
         movimientos.map((m) => m.contraparteMpId),
+        // Solo las transferencias a bancos traen cuenta de destino.
+        movimientos.map((m) => m.cuentaHash ?? null),
+        movimientos.map((m) => m.cuentaUltimos4 ?? null),
       ]
     );
     return rowCount;

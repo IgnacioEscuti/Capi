@@ -4,7 +4,8 @@ import { pool } from "../config/database.js";
 export const mpConexionRepository = {
   async buscarPorUsuario(userId) {
     const { rows } = await pool.query(
-      `SELECT user_id, mp_user_id, access_token, refresh_token, expires_at, last_synced_at, connected_at
+      `SELECT user_id, mp_user_id, access_token, refresh_token, expires_at, last_synced_at, connected_at,
+              payouts_synced_until, payout_report_from, payout_report_requested_at
        FROM mp_connections WHERE user_id = $1`,
       [userId]
     );
@@ -23,7 +24,10 @@ export const mpConexionRepository = {
            refresh_token = EXCLUDED.refresh_token,
            expires_at = EXCLUDED.expires_at,
            last_synced_at = NULL,
-           connected_at = now()`,
+           connected_at = now(),
+           payouts_synced_until = NULL,
+           payout_report_from = NULL,
+           payout_report_requested_at = NULL`,
       [userId, mpUserId, accessToken, refreshToken, expiraEn]
     );
   },
@@ -39,6 +43,28 @@ export const mpConexionRepository = {
   // "db" es el pool o el client de una transacción.
   async registrarSincronizacion(userId, fecha, db = pool) {
     await db.query("UPDATE mp_connections SET last_synced_at = $2 WHERE user_id = $1", [userId, fecha]);
+  },
+
+  // Reporte de liquidaciones pedido a MP y pendiente de importar.
+  async registrarPedidoDeReporte(userId, desde, pedidoEn) {
+    await pool.query(
+      `UPDATE mp_connections SET payout_report_from = $2, payout_report_requested_at = $3
+       WHERE user_id = $1`,
+      [userId, desde, pedidoEn]
+    );
+  },
+
+  // Se importó el reporte pendiente (o se descartó, con hasta = null): queda
+  // sin pedido y, si hay fecha, avanza hasta dónde están cubiertas las transferencias.
+  async cerrarPedidoDeReporte(userId, hasta, db = pool) {
+    await db.query(
+      `UPDATE mp_connections
+       SET payouts_synced_until = COALESCE($2, payouts_synced_until),
+           payout_report_from = NULL,
+           payout_report_requested_at = NULL
+       WHERE user_id = $1`,
+      [userId, hasta]
+    );
   },
 
   async borrar(userId) {

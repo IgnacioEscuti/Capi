@@ -4,7 +4,7 @@ App personal para registrar ingresos y egresos. Uso propio por ahora (quizás ve
 
 ## Idea general
 
-- Fuentes de dinero: **Mercado Pago** (carga automática desde la API de MP + mails de MP en Gmail) y **efectivo** (carga manual). Detalle en "Fuentes de datos".
+- Fuentes de dinero: **Mercado Pago** (carga automática desde la API de MP + reporte de liquidaciones para las transferencias a bancos) y **efectivo** (carga manual). Detalle en "Fuentes de datos".
 - **Solo para usuarios de Mercado Pago.** Ningún banco argentino (Santander, Galicia, BBVA, Brubank) ni otra billetera (Ualá, Naranja X, Personal Pay, MODO, Lemon) tiene API pública para leer movimientos de una cuenta personal. La contraparte sí puede ser de cualquier banco.
 - Todo el dinero junto, sin separar por cuenta. Retiros de efectivo de MP y transferencias entre cuentas propias = movimiento interno.
 - Cada usuario tiene su propia cuenta de MP asociada (diseño multiusuario desde el inicio).
@@ -177,7 +177,7 @@ Hacen falta igual para el efectivo y definen la tabla de movimientos (ver "Tabla
 - [x] Ajustes → Categorías (Stack propio dentro de la pestaña): cantidad, renombrar y borrar con aviso de cuántos movimientos quedan "Sin categoría".
 - [x] Probar en el iPhone con Expo Go contra el back local.
 
-### Etapa 3 — Carga automática desde la API de MP ⬅ actual
+### Etapa 3 — Carga automática desde la API de MP
 Conexión por OAuth de MP (multiusuario). Sincronización por polling (ver "Fuentes de datos").
 
 **3a — Deploy del back en Vercel**
@@ -270,9 +270,34 @@ Checklist 3c:
 - [x] Formulario de movimiento de MP: aviso "Importado de Mercado Pago…", tipo / monto / fecha con candado y deshabilitados, sin "Borrar"; al guardar reenvía tipo, monto y fecha originales.
 - [ ] Probar en el iPhone con Expo Go contra producción, conectando la cuenta real de MP.
 
-### Etapa 4 — Mails de MP en Gmail
-Solo transferencias a bancos (y pagos con tarjeta, si no aparecen en la API). Alcance a definir antes de arrancar.
-- Al importar mails, ignorar los "Tu pago fue aprobado" de pagos que ya vinieron por la API, para no duplicar.
+### Etapa 4 — Transferencias a CBU (reporte de liquidaciones) ⬅ actual
+Las transferencias a bancos no salen en `/v1/payments/search`, pero sí en el reporte de liquidaciones (`release_report`) de MP. Se suman como un paso extra de `POST /api/mp/sincronizar`. Lo que se verificó en "Fuentes de datos" → "Reporte de liquidaciones".
+
+- **Asíncrono, sin esperar:** cada sincronización importa el reporte que pidió la anterior (si ya está en `/list`) y deja pedido el siguiente. Las transferencias entran en la sincronización siguiente a que MP lo genera.
+  - **Un pedido por día.** Si se pide el mismo rango el mismo día, MP no genera otro reporte (verificado 23/10/2026), así que cuando ya se importó un reporte pedido hoy no se pide otro hasta mañana. Retraso máximo aceptado: un día.
+  - Rango: desde las 00:00 (hora AR) del último día cubierto (`payouts_synced_until`) hasta ahora. La primera vez, desde `connected_at` − 5 días. Lo repetido no se inserta (`ON CONFLICT`).
+  - El reporte pedido se busca en `/list` porque el `id` que devuelve el POST no es el de la lista. Sirve el que empieza ese mismo día (±1 día: MP redondea según la zona horaria de la cuenta) y termina después del momento del pedido.
+  - Si en 24 h no aparece, se descarta y se pide otro.
+  - **Nunca hace fallar la sincronización:** si algo falla, se loguea, devuelve 0 y se reintenta la próxima vez. Timeout de 8 s por llamada al reporte (el resto, 15 s).
+  - `importados` suma pagos + transferencias (el aviso de la app no cambia).
+- **Configuración del reporte** (se revisa antes de cada pedido): si la cuenta no tiene, se crea (columnas de Capi, sin programación, SFTP ni mails). Si ya tiene una, solo se le **agregan** las columnas que falten (`DATE`, `SOURCE_ID`, `DESCRIPTION`, `NET_DEBIT_AMOUNT`, `PAYOUT_BANK_ACCOUNT_NUMBER`); lo demás no se toca. El CSV se lee por nombre de columna y detecta el separador.
+- **Mapeo:** solo filas `DESCRIPTION = payout` (los `payment` ya vienen por la API, `asset_management` no se importa, `reserve_*` es ruido). Egreso, monto `NET_DEBIT_AMOUNT`, fecha `DATE`, descripción "Transferencia a CBU …5968" (sin CBU: "Transferencia a banco"), `source = 'mp_api'`, `external_id = payout_<SOURCE_ID>` (el prefijo evita chocar con el ID de un pago).
+- **CBU (dato de un tercero):** se guarda la huella HMAC-SHA256 (`counterparty_account_hash`, clave `CBU_HASH_KEY`) y los últimos 4 (`counterparty_account_last4`). Sirve para reconocer al destinatario y para reglas futuras (se calcula el HMAC del CBU que escriba el usuario y se compara) sin guardar el número. No va al DTO por ahora.
+- **Base:** `movements` + `counterparty_account_hash`, `counterparty_account_last4`. `mp_connections` + `payouts_synced_until`, `payout_report_from`, `payout_report_requested_at` (se limpian al reconectar).
+- **App:** en Ajustes → Mercado Pago, "Transferencias a bancos" en "Se importa solo", la nota de carga manual queda solo para el efectivo y, sin conectar, el aviso "Capi activa el reporte de liquidaciones de tu cuenta para traer las transferencias a bancos."
+
+Checklist 4:
+- [x] Verificar el reporte con la cuenta real (22–23/10/2026): aparecen los `payout`, IDs, CBU de destino, tiempos, rango congelado.
+- [x] `schema.sql` actualizado (columnas nuevas en `movements` y `mp_connections`).
+- [x] `CBU_HASH_KEY` en `env.js` (obligatoria, 64 hex) y `.env.example`; `huellaCbu` en `utils/cifrado.utils.js`.
+- [x] Cliente: config (GET / POST / PUT), pedir, listar y descargar reporte, con timeout de 8 s.
+- [x] Lectura del CSV y mapeo (`utils/reporteMp.utils.js`), probado con el reporte real (7 transferencias, mismo CBU → misma huella).
+- [x] Flujo en `sincronizar` (`importarTransferencias`), probado con client y repositories falsos: primera vez sin config, config del usuario sin columnas, pedido no listo, pedido vencido, ya cubierto hoy, error de MP.
+- [x] App: aviso y textos en Ajustes → Mercado Pago.
+- [ ] Correr la migración en Neon (`ALTER TABLE`).
+- [ ] Generar `CBU_HASH_KEY` y cargarla en el `.env` local y en Vercel; deploy.
+- [ ] Probar en producción con la cuenta real: sincronizar (pide el reporte), volver a sincronizar cuando esté listo (entran las transferencias), sincronizar otra vez (0 nuevas).
+- [ ] Ver el aviso y los textos nuevos en el iPhone.
 
 ### Después de las pantallas principales
 - **Face ID** (`expo-local-authentication`): pedirlo al abrir la app y al volver de segundo plano tras más de 1 minuto. La contraseña se pide solo si el token venció, se cerró sesión o falla Face ID. Requiere development build (Expo Go no soporta Face ID en iPhone).
@@ -298,7 +323,7 @@ Probado con Access Token de producción de la aplicación "Capi" (Checkout API) 
 | Ingreso desde banco (CVU) | Sí, sin persona | `operation_type: "account_fund"`, `payment_method_id: "cvu"`, `sub_type: "INTER_PSP"`. El payer soy yo y `bank_info` viene en null. No se distingue un tercero de una cuenta propia. El detalle no trae más. |
 | Egreso a cuenta MP | Sí | `payer_id` (yo) y `collector.id` (la otra persona), sin email ni CUIT. |
 | Reservas | Sí | `operation_type: "partition_transfer"`, en los dos sentidos: branch `"AM-to-POT"` (a reserva) y `"POT-to-AM"` (desde reserva). El nombre no viene en `description` (null) sino en `amounts.collector.transaction_destination.subpartition.name` / `amounts.payer.transaction_source.partitions[0].subpartition.name`. Movimiento interno. |
-| Egreso a banco (CBU) | No | — |
+| Egreso a banco (CBU) | No | Sale en el reporte de liquidaciones (ver abajo). |
 | Pago con QR, comercios y suscripciones | Sí | `operation_type: "regular_payment"` (branch QR, Merchant Services, Marketplace, Virtual) o `"recurring_payment"`. `payer_id` (yo), `collector.id` (el comercio) y `description` con el comercio. |
 | Pago con tarjeta de crédito | Sin confirmar | No se vio todavía. |
 
@@ -308,24 +333,28 @@ Probado con Access Token de producción de la aplicación "Capi" (Checkout API) 
 - **Webhooks:** probado con webhook.site y el evento "Pagos". La simulación llega, pero mandar y recibir transferencias **no dispara ningún aviso**. Solo sirve para cobros hechos a través de una integración. → Se usa **polling**: el back consulta `/v1/payments/search` y guarda lo nuevo. La frecuencia (al abrir la app, cada X minutos, botón "actualizar") se define en la etapa 3.
 - **Multiusuario:** OAuth de MP (botón "Conectar Mercado Pago"), sin auditoría ni costo.
 
-### Mails de MP (Gmail)
-- Llegan en egresos: "Tu pago fue aprobado" (comercio y monto) y "Ya enviamos tu transferencia" (nombre, entidad y número de cuenta del beneficiario).
-- **No** llega mail cuando recibo plata (no se puede activar).
-- Leer Gmail con OAuth usa un permiso "restringido":
-  - **Producción sin verificar:** gratis, hasta 100 usuarios en total (incluido yo, cuenta para siempre: no se libera si alguien deja de usar la app). Cada usuario acepta una vez el aviso de "app no verificada" de Google (no se puede ocultar). El usuario 101 no puede conectar Gmail; el resto de la app le funciona.
-  - **Modo Testing:** no conviene (lista de mails a mano y el permiso vence cada 7 días).
-  - **Para vender (más de 100):** verificación de Google + auditoría CASA anual. Tier 2 con TAC Security, unos USD 540/año. Requiere política de privacidad.
-  - El reenvío automático de mails también requiere permisos restringidos, así que no evita esto.
+### Reporte de liquidaciones (`release_report`, verificado 22–23/10/2026)
+Endpoints en `api.mercadopago.com/v1/account/release_report`: `/config` (GET / POST / PUT), POST (pedir con `begin_date` / `end_date`), `/list` y `/<file_name>` (descarga del CSV). Mismo token de OAuth.
+- **Transferencias a CBU:** `DESCRIPTION = payout`, cada una en 3 filas con el mismo `SOURCE_ID` (dos `reserve_for_payout` que se compensan y el `payout`). Trae fecha y hora, `NET_DEBIT_AMOUNT`, `SOURCE_ID` (12 dígitos), `PAYOUT_BANK_ACCOUNT_NUMBER` (CBU completo de destino, 22 dígitos) y `EXTERNAL_REFERENCE` (ID de Coelsa). **No trae el nombre** del destinatario. Los `SOURCE_ID` de los payouts dan 404 en `/v1/payments/{id}`: nunca vienen por las dos fuentes.
+- También trae los `payment` (con `SOURCE_ID` = ID del pago de la API), `asset_management` (rendimientos) y `reserve_for_payment` (ruido).
+- **Configuración:** una cuenta sin configuración da 404 en `/config`; MP la crea sola (con columnas por defecto, sin `PAYOUT_BANK_ACCOUNT_NUMBER`) al pedir el primer reporte. Los nombres de columna vienen en inglés aunque el idioma sea `es`.
+- **Tiempos:** el primer reporte tardó ~2 h (mientras MP creaba la configuración); el segundo, menos de un minuto. MP manda un mail cuando está listo. `date_created` dice `-04:00` pero el valor está en UTC.
+- MP redondea el rango a días enteros. El `id` que devuelve el POST no es el de `/list`. Pedir el mismo rango el mismo día no genera otro reporte.
+- El "settlement report" (todas las transacciones) no hizo falta probarlo.
+
+### Mails de MP (Gmail) — descartado
+Se pensó para las transferencias a bancos (y pagos con tarjeta). Se descartó en la etapa 4: las transferencias salen en el reporte de liquidaciones, los pagos con tarjeta no interesan, y leer Gmail exige un permiso "restringido" de Google (máximo 100 usuarios sin verificar; para más, auditoría anual paga).
 
 ### Cobertura
-- La API cubre ingresos, transferencias dentro de MP, reservas, pagos con QR/comercios y suscripciones. Los mails quedan para transferencias a bancos (y tarjeta, si no aparece en la API). Ninguna fuente sola alcanza.
+- La API cubre ingresos, transferencias dentro de MP, reservas, pagos con QR/comercios y suscripciones. El reporte de liquidaciones cubre las transferencias a bancos (CBU).
 - Queda manual: el efectivo y quién mandó los ingresos desde bancos (entran solos, sin persona).
-- Rendimientos de MP: no aparecen en la API ni en los mails → **no se registran**.
+- Rendimientos de MP: salen en el reporte (`asset_management`) pero **no se registran**.
+- Pagos con tarjeta de crédito: no se importan (no interesan).
 
 ## Tabla de movimientos (requisitos para el diseño)
 
-- Soporta varias fuentes: manual, API de MP y, más adelante, mail.
-- ID externo (ID del pago de MP o del mail) para no duplicar.
+- Soporta varias fuentes: manual y MP (API de pagos + reporte de liquidaciones, los dos como `mp_api`).
+- ID externo (ID del pago de MP, o `payout_<id>` en transferencias a bancos) para no duplicar.
 - Persona identificada por el **ID de usuario MP**. Los ingresos por CVU entran sin persona: el usuario la agrega a mano.
 
 ## Movimientos, reglas y sueldo (definido para más adelante)
@@ -335,13 +364,14 @@ Probado con Access Token de producción de la aplicación "Capi" (Checkout API) 
 - **Editar movimientos:** cualquier movimiento se puede editar a mano. Una edición manual tiene prioridad: ninguna regla la pisa.
   - Movimientos de MP: se edita categoría y descripción; el **monto no** (viene del banco).
   - Movimientos de efectivo: se edita todo.
-- Por ahora los pagos a empleados son a cuentas de MP, así que entran por la API. Si en algún momento son a bancos, entrarían por los mails de Gmail.
+- Por ahora los pagos a empleados son a cuentas de MP, así que entran por la API. Si en algún momento son a bancos, entran por el reporte de liquidaciones sin ID de usuario MP: la regla tendría que ser por CBU (huella HMAC).
 
 ## Pendientes
 
 - Renovar el Access Token de MP (quedó expuesto en una captura).
 - [x] Regenerar el `client_secret` de MP (quedó expuesto en un chat). Hecho el 20/10/2026.
-- Etapa 4: definir cómo deduplicar mail ↔ API (cómo saber que un "Tu pago fue aprobado" ya vino por la API; no hay un ID en común). Se define en esa etapa.
+- Transferencias a cuentas propias por CBU: hoy entran como egreso. Según "Idea general" deberían ser movimiento interno; Capi no puede saber si un CBU es propio. Idea: "Marcar CBU …5968 como cuenta propia" usando la huella.
+- Transferencias a CBU rechazadas o devueltas por el banco: no apareció ninguna, no se sabe cómo vienen en el reporte. Por ahora se ignoran (si MP devuelve la plata, el egreso queda igual).
 - Borrar la URL de webhook.site de la configuración de webhooks de la aplicación "Capi" en MP.
 - Antes de diseñar algo que dependa de Mercado Pago, verificar qué datos da realmente la API.
 - **Antes de vender:** pasar Vercel de Hobby a Pro, y hacer que el rate limit funcione con varias instancias (hoy está en memoria y cada instancia de Vercel cuenta por separado).

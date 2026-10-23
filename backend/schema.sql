@@ -26,8 +26,12 @@ CREATE TABLE movements (
   description        TEXT,
   category_id        INTEGER REFERENCES categories(id) ON DELETE SET NULL,
   source             TEXT NOT NULL DEFAULT 'manual' CHECK (source IN ('manual', 'mp_api')),
-  external_id        TEXT,   -- ID del pago de MP (NULL en los manuales)
+  external_id        TEXT,   -- ID del pago de MP, o "payout_<id>" en transferencias a bancos (NULL en los manuales)
   counterparty_mp_id BIGINT, -- ID de usuario MP de la otra persona (solo money_transfer)
+  -- CBU de destino de una transferencia a banco (dato de un tercero): solo la
+  -- huella HMAC-SHA256 (clave en CBU_HASH_KEY) y los últimos 4 dígitos.
+  counterparty_account_hash  TEXT,
+  counterparty_account_last4 TEXT,
   created_at         TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at         TIMESTAMPTZ NOT NULL DEFAULT now(),
   UNIQUE (user_id, source, external_id)
@@ -44,5 +48,9 @@ CREATE TABLE mp_connections (
   refresh_token  TEXT NOT NULL,
   expires_at     TIMESTAMPTZ NOT NULL,
   last_synced_at TIMESTAMPTZ,
-  connected_at   TIMESTAMPTZ NOT NULL DEFAULT now()
+  connected_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
+  -- Transferencias a bancos (reporte de liquidaciones, asíncrono):
+  payouts_synced_until       TIMESTAMPTZ, -- hasta cuándo cubre el último reporte importado
+  payout_report_from         TIMESTAMPTZ, -- inicio del reporte pedido y todavía no importado (NULL = ninguno)
+  payout_report_requested_at TIMESTAMPTZ  -- cuándo se pidió ese reporte
 );

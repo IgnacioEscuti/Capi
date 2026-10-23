@@ -26,3 +26,14 @@ export function descifrar(guardado) {
   decipher.setAuthTag(tag);
   return Buffer.concat([decipher.update(cifrado), decipher.final()]).toString("utf8");
 }
+
+// Huella de un CBU (dato de un tercero): HMAC-SHA256 con una clave propia.
+// El mismo CBU da siempre la misma huella (sirve para reconocer al
+// destinatario o compararlo con uno que escriba el usuario), pero no se puede
+// volver al número. Con un SHA-256 sin clave sí se podría: un CBU tiene
+// estructura fija y se pueden probar combinaciones.
+const CLAVE_CBU = Buffer.from(env.CBU_HASH_KEY, "hex");
+
+export function huellaCbu(cbu) {
+  return crypto.createHmac("sha256", CLAVE_CBU).update(cbu).digest("hex");
+}

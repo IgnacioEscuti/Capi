@@ -17,6 +17,7 @@ import { formatearMomento } from '@/utils/formato';
 
 const IMPORTADOS = [
   { icono: 'swap-horiz', texto: 'Transferencias' },
+  { icono: 'account-balance', texto: 'Transferencias a bancos' },
   { icono: 'qr-code-2', texto: 'Pagos con QR' },
   { icono: 'autorenew', texto: 'Suscripciones' },
   { icono: 'savings', texto: 'Reservas' },
@@ -107,6 +108,12 @@ export default function MercadoPagoScreen() {
 
             <View style={styles.espacio} />
 
+            {!conectado && (
+              <Text style={styles.avisoReporte}>
+                Capi activa el reporte de liquidaciones de tu cuenta para traer las transferencias a bancos.
+              </Text>
+            )}
+
             {conectado ? (
               <BotonDesconectar onPress={() => setConfirmandoDesconexion(true)} />
             ) : (
@@ -194,8 +201,7 @@ function NotaCargaManual() {
     <View style={[styles.tarjeta, styles.nota]}>
       <MaterialIcons name="edit-note" size={24} color={colores.texto2} />
       <Text style={styles.textoNota}>
-        Las <Text style={styles.resaltado}>transferencias a bancos</Text> y el{' '}
-        <Text style={styles.resaltado}>efectivo</Text> los seguís cargando a mano.
+        El <Text style={styles.resaltado}>efectivo</Text> lo seguís cargando a mano.
       </Text>
     </View>
   );
@@ -364,6 +370,14 @@ const styles = StyleSheet.create({
   espacio: {
     flex: 1,
     minHeight: 16,
+  },
+  avisoReporte: {
+    paddingHorizontal: 8,
+    fontFamily: fuentes.regular,
+    fontSize: 13,
+    lineHeight: 18,
+    color: colores.texto3,
+    textAlign: 'center',
   },
   botonDesconectar: {
     height: 60,
