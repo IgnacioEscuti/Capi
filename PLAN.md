@@ -178,7 +178,7 @@ Hacen falta igual para el efectivo y definen la tabla de movimientos (ver "Tabla
 - [x] Ajustes → Categorías (Stack propio dentro de la pestaña): cantidad, renombrar y borrar con aviso de cuántos movimientos quedan "Sin categoría".
 - [x] Probar en el iPhone con Expo Go contra el back local.
 
-### Etapa 3 — Carga automática desde la API de MP
+### Etapa 3 — Carga automática desde la API de MP✅
 Conexión por OAuth de MP (multiusuario). Sincronización por polling (ver "Fuentes de datos").
 
 **3a — Deploy del back en Vercel**
@@ -271,7 +271,7 @@ Checklist 3c:
 - [x] Formulario de movimiento de MP: aviso "Importado de Mercado Pago…", tipo / monto / fecha con candado y deshabilitados, sin "Borrar"; al guardar reenvía tipo, monto y fecha originales.
 - [ ] Probar en el iPhone con Expo Go contra producción, conectando la cuenta real de MP.
 
-### Etapa 4 — Transferencias a CBU (reporte de liquidaciones) ⬅ actual
+### Etapa 4 — Transferencias a CBU (reporte de liquidaciones)✅
 Las transferencias a bancos no salen en `/v1/payments/search`, pero sí en el reporte de liquidaciones (`release_report`) de MP. Se suman como un paso extra de `POST /api/mp/sincronizar`. Lo que se verificó en "Fuentes de datos" → "Reporte de liquidaciones".
 
 - **Asíncrono, sin esperar:** cada sincronización importa el reporte que pidió la anterior (si ya está en `/list`) y deja pedido el siguiente. Las transferencias entran en la sincronización siguiente a que MP lo genera.
@@ -295,10 +295,10 @@ Checklist 4:
 - [x] Lectura del CSV y mapeo (`utils/reporteMp.utils.js`), probado con el reporte real (7 transferencias, mismo CBU → misma huella).
 - [x] Flujo en `sincronizar` (`importarTransferencias`), probado con client y repositories falsos: primera vez sin config, config del usuario sin columnas, pedido no listo, pedido vencido, ya cubierto hoy, error de MP.
 - [x] App: aviso y textos en Ajustes → Mercado Pago.
-- [ ] Correr la migración en Neon (`ALTER TABLE`).
-- [ ] Generar `CBU_HASH_KEY` y cargarla en el `.env` local y en Vercel; deploy.
-- [ ] Probar en producción con la cuenta real: sincronizar (pide el reporte), volver a sincronizar cuando esté listo (entran las transferencias), sincronizar otra vez (0 nuevas).
-- [ ] Ver el aviso y los textos nuevos en el iPhone.
+- [x] Correr la migración en Neon (`ALTER TABLE`).
+- [x] Generar `CBU_HASH_KEY` y cargarla en el `.env` local y en Vercel; deploy.
+- [x] Probar en producción con la cuenta real: sincronizar (pide el reporte), volver a sincronizar cuando esté listo (entran las transferencias), sincronizar otra vez (0 nuevas).
+- [x] Ver el aviso y los textos nuevos en el iPhone.
 
 ### Después de las pantallas principales
 - **Face ID** (`expo-local-authentication`): pedirlo al abrir la app y al volver de segundo plano tras más de 1 minuto. La contraseña se pide solo si el token venció, se cerró sesión o falla Face ID. Requiere development build (Expo Go no soporta Face ID en iPhone).
@@ -369,8 +369,6 @@ Se pensó para las transferencias a bancos (y pagos con tarjeta). Se descartó e
 
 ## Pendientes
 
-- Renovar el Access Token de MP (quedó expuesto en una captura).
-- [x] Regenerar el `client_secret` de MP (quedó expuesto en un chat). Hecho el 20/10/2026.
 - Transferencias a cuentas propias por CBU: hoy entran como egreso. Según "Idea general" deberían ser movimiento interno; Capi no puede saber si un CBU es propio. Idea: "Marcar CBU …5968 como cuenta propia" usando la huella.
 - Transferencias a CBU rechazadas o devueltas por el banco: no apareció ninguna, no se sabe cómo vienen en el reporte. Por ahora se ignoran (si MP devuelve la plata, el egreso queda igual).
 - Borrar la URL de webhook.site de la configuración de webhooks de la aplicación "Capi" en MP.
