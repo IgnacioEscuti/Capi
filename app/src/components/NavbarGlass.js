@@ -5,7 +5,9 @@ import { colores, espaciado, fuentes, radios, sombras } from '@/theme';
 import { abrirFormularioMovimiento } from '@/utils/navegacion';
 
 // Reemplaza la barra de tabs por defecto: Expo Router le pasa el estado de navegación por props.
-export default function NavbarGlass({ state, descriptors, navigation }) {
+// Desde SDK 58 no recibe "navigation": los eventos van por "emitter" y para cambiar
+// de tab está "navigateToTab", que recibe la key de la ruta (no el nombre).
+export default function NavbarGlass({ state, descriptors, emitter, navigateToTab }) {
   return (
     <View style={styles.contenedor}>
       <View style={styles.sombraBarra}>
@@ -19,8 +21,8 @@ export default function NavbarGlass({ state, descriptors, navigation }) {
             const color = activa ? colores.acento : colores.texto2;
 
             function alPresionar() {
-              const evento = navigation.emit({ type: 'tabPress', target: ruta.key, canPreventDefault: true });
-              if (!activa && !evento.defaultPrevented) navigation.navigate(ruta.name, ruta.params);
+              const evento = emitter.emit({ type: 'tabPress', target: ruta.key, canPreventDefault: true });
+              if (!activa && !evento.defaultPrevented) navigateToTab(ruta.key);
             }
 
             return (

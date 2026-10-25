@@ -13,7 +13,8 @@ App personal para registrar ingresos y egresos. Uso propio por ahora (quizás ve
 
 ## Stack
 
-- **Front:** React Native + Expo.
+- **Front:** React Native + Expo (SDK 58, React Native 0.88; actualizado desde SDK 57 el 23/10/2026 porque Expo Go del iPhone pasó a SDK 58).
+  - `app/.npmrc` con `legacy-peer-deps=true`: npm corta la instalación por la dependencia opcional `react-native-windows` del datetimepicker (pide React Native 0.85; no se usa). Sacarlo cuando el datetimepicker lo resuelva.
 - Librerías de la app sumadas en la etapa 2: `@react-native-community/datetimepicker` (selector de fecha nativo).
 - Sumada en la etapa 3: `expo-web-browser` (login de Mercado Pago dentro de la app).
 - **Back:** Node + Express, Passport (local + jwt), bcryptjs. Deploy en **Vercel** (plan Hobby), ejecutado como Vercel Functions con Fluid compute.
@@ -117,7 +118,7 @@ Basada en la de AnimalPiletas, adaptada a Postgres y mobile.
   - [x] Middleware de errores central y 404 en JSON para rutas inexistentes.
   - [x] Contraseña de máximo 72 caracteres (límite de bcrypt).
   - [x] Probar contra la base real de Neon.
-- [x] App (`/app`, Expo SDK 57 + Expo Router, en JavaScript):
+- [x] App (`/app`, Expo SDK 57 (hoy 58) + Expo Router, en JavaScript):
   - [x] Proyecto creado con la plantilla por defecto, sin los ejemplos. Tema en `src/theme`.
   - [x] `AuthContext` con `usuario`, `cargando`, `login`, `registro`, `logout`. Token en `expo-secure-store`; al abrir la app se valida con `GET /api/auth/actual`.
   - [x] Cerrar sesión = borrar el token del teléfono (JWT stateless, sin endpoint).
