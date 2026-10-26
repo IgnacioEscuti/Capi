@@ -42,6 +42,18 @@
         height: 100%;
         flex: 1;
       }
+      /* Instalada (pantalla completa) con black-translucent, iOS arma el viewport como si la barra
+         de estado siguiera ocupando lugar: 100% queda corto por ese alto y sobra una franja abajo.
+         100vh sí mide la pantalla entera. Solo en standalone: en Safari, 100vh incluye la zona
+         de las barras del navegador y taparía el final. El indicador de inicio lo respetan las
+         pantallas con useSafeAreaInsets(), como en nativo. */
+      @media (display-mode: standalone) {
+        html,
+        body,
+        #root {
+          height: 100vh;
+        }
+      }
     </style>
   </head>
 

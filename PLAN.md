@@ -401,6 +401,9 @@ Checklist 6:
 - [ ] `WEB_URL` en el proyecto del back + redeploy del back.
 - [ ] Probar en el iPhone: aviso en Safari, instalar, login, movimientos, fecha, conectar MP (vuelve a la PWA), sincronizar, navbar glass.
 - [ ] Probar que la app sigue igual en Expo Go.
+- [x] Franja vacía abajo en la PWA instalada: `height: 100vh` en html/body/#root solo con `@media (display-mode: standalone)` (`public/index.html`).
+- [ ] Probar en el iPhone (redeploy) que la app llega hasta abajo y el navbar queda donde en nativo.
+- [ ] Texto ~20% más grande en la PWA: revisar Ajustes → Pantalla y brillo → Tamaño del texto. Si está por debajo del medio, la causa es Dynamic Type (Expo Go lo aplica, la web no) y se decide cómo seguir.
 
 ### Etapa 7 — Reportes
 Se define al terminar la etapa 6.
