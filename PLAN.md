@@ -340,6 +340,25 @@ Checklist 5a:
 - [x] Probar en local con una cuenta de prueba (puntos 1 a 4 + DTO; 30 chequeos OK, cuentas de prueba borradas).
 - [ ] Deploy y probar en producción.
 
+**5b — App**
+- Del diseño se tomó solo lo nuevo; el resto respeta el estilo ya armado (campos en tarjeta con ícono, "Cancelar" en los modales, una tarjeta por fila en Ajustes).
+- Editar regla es un modal en la raíz (`app/regla.js`), como el formulario de movimiento: se abre desde Ajustes → Reglas y desde la fila "Regla: …" del formulario (que ya es un modal). Recibe solo el `id` y busca la regla en `GET /api/reglas`, porque el DTO de movimiento no trae el origen.
+- El formulario vuelve a pedir las reglas al quedar visible: si se editó o borró la regla desde ahí, la fila se actualiza (o vuelve a aparecer el interruptor).
+- `SelectorCategoria` suma `conSinCategoria` (default `true`) y "+ Nueva categoría" solo aparece si se pasa `onNueva`: en Editar regla no se muestra ninguna de las dos (la categoría es obligatoria).
+- Ícono de reglas: `person-outline` (MaterialIcons no tiene el de persona con flecha del diseño).
+- Back: `GET/POST/PATCH /api/categorias` suman `cantidadReglas` (`rule_count`).
+
+Checklist 5b:
+- [x] `regla.service.js` (listar, actualizar, borrar) y `utils/reglas.js` (texto del origen, abrir Editar regla).
+- [x] Formulario de movimiento de MP: interruptor "Aplicar a los próximos de esta persona" + nombre obligatorio y ayuda; exige categoría; manda `regla: { nombre }`; 409 como error. Con regla, fila "Regla: Juan → Sueldo" que abre Editar regla.
+- [x] Ajustes: fila "Reglas" con cantidad, debajo de Categorías.
+- [x] Ajustes → Reglas: lista (nombre, "Mercado Pago" / "CBU …1234", categoría con ícono), estado vacío, recarga al enfocar.
+- [x] Editar regla: nombre, categoría, origen con candado, Guardar, "Borrar regla" con confirmación. Vuelve a la pantalla anterior.
+- [x] Back: `cantidadReglas` en categorías (probado en local). Ajustes → Categorías avisa que se borran sus reglas.
+- [x] La app compila (`expo export` de iOS sin errores). `expo lint` no corre: le falta `typescript` (no se instaló).
+- [ ] Probar en el iPhone contra el back local.
+- [ ] Deploy del back (5a + 5b) y probar en el iPhone contra producción.
+
 ### Después de las pantallas principales
 - **Face ID** (`expo-local-authentication`): pedirlo al abrir la app y al volver de segundo plano tras más de 1 minuto. La contraseña se pide solo si el token venció, se cerró sesión o falla Face ID. Requiere development build (Expo Go no soporta Face ID en iPhone).
 - **Recuperar contraseña:** código de 6 dígitos por email, vence en 15 minutos. Columnas nuevas: `reset_code_hash`, `reset_code_expires_at` (con `ALTER TABLE`). Envío con Nodemailer + Gmail (contraseña de aplicación). Primero probar un mail desde Vercel: si el SMTP está bloqueado, pasar a un servicio por API.

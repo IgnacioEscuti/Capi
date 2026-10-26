@@ -55,4 +55,14 @@ export function validarNombreCategoria(nombre) {
   }
 }
 
+// Mismo límite que el back: el nombre pasa a ser la descripción de los movimientos.
+const NOMBRE_REGLA_MAX_CARACTERES = 40;
+
+export function validarNombreRegla(nombre) {
+  if (estaVacio(nombre)) return 'Ingresá el nombre de la persona.';
+  if (nombre.trim().length > NOMBRE_REGLA_MAX_CARACTERES) {
+    return `El nombre puede tener como máximo ${NOMBRE_REGLA_MAX_CARACTERES} caracteres.`;
+  }
+}
+
 export const tieneErrores =(errores) => Object.keys(errores).length > 0;

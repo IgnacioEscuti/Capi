@@ -6,12 +6,14 @@ import { useAuth } from '@/context/AuthContext';
 import { useDatosAlEnfocar } from '@/hooks/useDatosAlEnfocar';
 import { listarCategorias } from '@/services/categoria.service';
 import { obtenerEstadoMp } from '@/services/mercadoPago.service';
+import { listarReglas } from '@/services/regla.service';
 import { colores, fuentes, radios } from '@/theme';
 
 export default function AjustesScreen() {
   const { logout } = useAuth();
   const { datos: categorias } = useDatosAlEnfocar(listarCategorias);
   const { datos: estadoMp } = useDatosAlEnfocar(obtenerEstadoMp);
+  const { datos: reglas } = useDatosAlEnfocar(listarReglas);
 
   return (
     <PantallaSeccion titulo="Ajustes">
@@ -28,6 +30,12 @@ export default function AjustesScreen() {
           titulo="Categorías"
           detalle={categorias ? String(categorias.length) : undefined}
           onPress={() => router.push('/ajustes/categorias')}
+        />
+        <FilaAjuste
+          icono="person-outline"
+          titulo="Reglas"
+          detalle={reglas ? String(reglas.length) : undefined}
+          onPress={() => router.push('/ajustes/reglas')}
         />
         <FilaAjuste icono="logout" titulo="Cerrar sesión" destructiva onPress={logout} />
       </View>

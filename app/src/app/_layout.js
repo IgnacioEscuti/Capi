@@ -52,6 +52,7 @@ function Navegacion({ fuentesListas }) {
       <Stack.Protected guard={Boolean(usuario)}>
         <Stack.Screen name="(tabs)" />
         <Stack.Screen name="movimiento" options={{ presentation: 'modal' }} />
+        <Stack.Screen name="regla" options={{ presentation: 'modal' }} />
       </Stack.Protected>
       <Stack.Protected guard={!usuario}>
         <Stack.Screen name="(auth)" />

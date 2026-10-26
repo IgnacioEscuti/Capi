@@ -15,6 +15,7 @@ import { borrarCategoria, listarCategorias, renombrarCategoria } from '@/service
 import { colores, espaciado, fuentes, radios, tipografia } from '@/theme';
 
 const textoMovimientos = (cantidad) => `${cantidad} ${cantidad === 1 ? 'movimiento' : 'movimientos'}`;
+const textoReglas = (cantidad) => (cantidad === 1 ? 'regla' : `${cantidad} reglas`);
 
 export default function CategoriasScreen() {
   const insets = useSafeAreaInsets();
@@ -105,21 +106,35 @@ export default function CategoriasScreen() {
           textoConfirmar="Borrar categoría"
           onConfirmar={borrar}
           onCancelar={cerrarBorrar}>
-          <MensajeBorrado cantidad={borrando.categoria.cantidadMovimientos} />
+          <MensajeBorrado
+            cantidad={borrando.categoria.cantidadMovimientos}
+            cantidadReglas={borrando.categoria.cantidadReglas}
+          />
         </DialogoConfirmacion>
       )}
     </View>
   );
 }
 
-function MensajeBorrado({ cantidad }) {
-  if (cantidad === 0) return 'No tiene movimientos.';
-
+function MensajeBorrado({ cantidad, cantidadReglas }) {
   const varios = cantidad > 1;
   return (
     <>
-      {varios ? 'Sus' : 'Su'} <Resaltado>{textoMovimientos(cantidad)}</Resaltado> no se{' '}
-      {varios ? 'borran: van' : 'borra: va'} a quedar como <Resaltado>Sin categoría</Resaltado>.
+      {cantidad === 0 ? (
+        'No tiene movimientos.'
+      ) : (
+        <>
+          {varios ? 'Sus' : 'Su'} <Resaltado>{textoMovimientos(cantidad)}</Resaltado> no se{' '}
+          {varios ? 'borran: van' : 'borra: va'} a quedar como <Resaltado>Sin categoría</Resaltado>.
+        </>
+      )}
+      {/* Las reglas sí se borran con la categoría (en el back, ON DELETE CASCADE). */}
+      {cantidadReglas > 0 && (
+        <>
+          {' '}
+          También se {cantidadReglas > 1 ? 'borran sus' : 'borra su'} <Resaltado>{textoReglas(cantidadReglas)}</Resaltado>.
+        </>
+      )}
     </>
   );
 }

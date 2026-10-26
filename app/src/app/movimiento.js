@@ -1,8 +1,8 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import DateTimePicker, { DateTimePickerAndroid } from '@react-native-community/datetimepicker';
-import { router, useLocalSearchParams } from 'expo-router';
-import { useRef, useState } from 'react';
-import { Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
+import { useCallback, useRef, useState } from 'react';
+import { Platform, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import BotonPrimario from '@/components/BotonPrimario';
 import BotonTexto from '@/components/BotonTexto';
@@ -17,6 +17,7 @@ import { useDatosAlEnfocar } from '@/hooks/useDatosAlEnfocar';
 import { obtenerMensajeDeError } from '@/services/api';
 import { crearCategoria, listarCategorias } from '@/services/categoria.service';
 import { actualizarMovimiento, borrarMovimiento, crearMovimiento } from '@/services/movimiento.service';
+import { listarReglas } from '@/services/regla.service';
 import { colores, espaciado, fuentes, radios, tipografia } from '@/theme';
 import { agruparMiles, formatearFechaLarga, formatearPesosConSigno } from '@/utils/formato';
 import {
@@ -29,7 +30,8 @@ import {
   obtenerMontoConSigno,
   obtenerTituloMovimiento,
 } from '@/utils/movimientos';
-import { tieneErrores, validarMovimiento } from '@/utils/validaciones';
+import { abrirEditarRegla } from '@/utils/reglas';
+import { tieneErrores, validarMovimiento, validarNombreRegla } from '@/utils/validaciones';
 
 const HOJAS = {
   fecha: { titulo: 'Fecha', botonCerrar: true },
@@ -50,6 +52,7 @@ export default function MovimientoScreen() {
   const fechaOriginal = original?.fecha;
   const tipoOriginal = original?.tipo;
   const montoOriginal = original?.monto;
+  const idReglaOriginal = original?.regla?.id;
 
   const insets = useSafeAreaInsets();
   const { datos: categorias, error: errorCategorias, recargar: recargarCategorias } = useDatosAlEnfocar(listarCategorias);
@@ -66,9 +69,33 @@ export default function MovimientoScreen() {
   // "tipo" se conserva al cerrar para que el contenido no cambie mientras la hoja baja.
   const [hoja, setHoja] = useState({ visible: false, tipo: 'categoria' });
   const [confirmandoBorrado, setConfirmandoBorrado] = useState(false);
+  // Regla de la contraparte (solo movimientos de MP). Con regla se muestra la fila
+  // "Regla: Juan → Sueldo"; sin regla pero con contraparte, el interruptor para crearla.
+  const [regla, setRegla] = useState(original?.regla ?? null);
+  const [aplicarRegla, setAplicarRegla] = useState(false);
+  const [nombreRegla, setNombreRegla] = useState('');
   const idCategoria = categoria?.id ?? null;
+  const puedeCrearRegla = deMp && original.tieneContraparte && !regla;
   const montoRef = useRef(null);
   const descripcionRef = useRef(null);
+  const nombreReglaRef = useRef(null);
+
+  // Al volver de Editar regla, la regla pudo cambiar o borrarse: se vuelve a
+  // buscar para que la fila no quede vieja. Si se borró, aparece el interruptor.
+  useFocusEffect(
+    useCallback(() => {
+      if (!idReglaOriginal) return;
+      let vigente = true;
+      listarReglas()
+        .then((reglas) => {
+          if (vigente) setRegla(reglas.find((r) => r.id === idReglaOriginal) ?? null);
+        })
+        .catch(() => {}); // Si falla, queda la que vino con el movimiento.
+      return () => {
+        vigente = false;
+      };
+    }, [idReglaOriginal])
+  );
 
   function limpiarErrores(campo) {
     setErrores((anteriores) => ({ ...anteriores, [campo]: undefined }));
@@ -89,6 +116,7 @@ export default function MovimientoScreen() {
 
   function elegirCategoria(categoriaElegida) {
     setCategoria(categoriaElegida);
+    setErrorGeneral(''); // Por si era "Elegí una categoría…" de la regla.
     cerrarHoja();
   }
 
@@ -103,15 +131,27 @@ export default function MovimientoScreen() {
     if (enviando) return;
 
     const erroresValidacion = validarMovimiento({ monto: montoANumero(monto), descripcion });
+    const creaRegla = puedeCrearRegla && aplicarRegla;
+    if (creaRegla) {
+      const errorNombreRegla = validarNombreRegla(nombreRegla);
+      if (errorNombreRegla) erroresValidacion.nombreRegla = errorNombreRegla;
+    }
     setErrores(erroresValidacion);
     setErrorGeneral('');
     if (tieneErrores(erroresValidacion)) return;
+    // La regla carga los próximos movimientos con esta categoría: sin categoría no tiene sentido.
+    if (creaRegla && !idCategoria) {
+      setErrorGeneral('Elegí una categoría para aplicarla a los próximos de esta persona.');
+      return;
+    }
 
     const descripcionYCategoria = { descripcion: descripcion.trim() || null, categoriaId: idCategoria };
     // En los de MP el back exige tipo, monto y fecha iguales a los guardados: se reenvían tal cual.
     const datos = deMp
       ? { tipo: tipoOriginal, monto: montoOriginal, fecha: fechaOriginal, ...descripcionYCategoria }
       : { tipo, monto: montoANumero(monto), fecha: calcularFechaAEnviar(dia, fechaOriginal), ...descripcionYCategoria };
+    // Con el interruptor encendido, el back crea la regla en la misma operación (si ya hay una, 409).
+    if (creaRegla) datos.regla = { nombre: nombreRegla.trim() };
 
     setEnviando(true);
     try {
@@ -200,6 +240,56 @@ export default function MovimientoScreen() {
             onPress={() => abrirHoja('categoria')}
           />
         </TarjetaCampos>
+
+        {puedeCrearRegla && (
+          <TarjetaCampos style={styles.tarjetaRegla}>
+            <View style={styles.filaInterruptor}>
+              <Text style={styles.textoInterruptor}>Aplicar a los próximos de esta persona</Text>
+              <Switch
+                value={aplicarRegla}
+                onValueChange={(valor) => {
+                  setAplicarRegla(valor);
+                  limpiarErrores('nombreRegla');
+                }}
+                trackColor={{ false: colores.elevado, true: colores.acento }}
+                ios_backgroundColor={colores.elevado}
+                accessibilityLabel="Aplicar a los próximos de esta persona"
+              />
+            </View>
+            {aplicarRegla && (
+              <>
+                <SeparadorCampos />
+                <CampoFormulario
+                  ref={nombreReglaRef}
+                  icono="person-outline"
+                  etiqueta="Nombre de la persona"
+                  placeholder="Ej: Juan"
+                  value={nombreRegla}
+                  onChangeText={(valor) => {
+                    setNombreRegla(valor);
+                    limpiarErrores('nombreRegla');
+                  }}
+                  error={errores.nombreRegla}
+                  ayuda="Los próximos movimientos de esta persona se van a cargar con esta categoría y este nombre."
+                  autoCapitalize="words"
+                  autoFocus
+                  returnKeyType="done"
+                />
+              </>
+            )}
+          </TarjetaCampos>
+        )}
+
+        {deMp && regla && (
+          <TarjetaCampos style={styles.tarjetaRegla}>
+            <CampoBoton
+              icono="person-outline"
+              etiqueta="Regla"
+              valor={`${regla.nombre} → ${regla.categoria.nombre}`}
+              onPress={() => abrirEditarRegla(regla.id)}
+            />
+          </TarjetaCampos>
+        )}
 
         <View style={styles.espacio} />
 
@@ -503,6 +593,22 @@ const styles = StyleSheet.create({
     width: 1,
     height: 1,
     opacity: 0,
+  },
+  tarjetaRegla: {
+    marginTop: 16,
+  },
+  filaInterruptor: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 14,
+    paddingVertical: 16,
+    paddingHorizontal: 18,
+  },
+  textoInterruptor: {
+    flex: 1,
+    fontFamily: fuentes.medio,
+    fontSize: 16,
+    color: colores.texto,
   },
   espacio: {
     flex: 1,

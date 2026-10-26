@@ -6,17 +6,28 @@ import { colores, fuentes } from '@/theme';
 
 // Contenido de la hoja "Categoría" (va adentro de <HojaInferior>):
 // "Sin categoría" primero, después las del usuario y al final "+ Nueva categoría".
-export default function SelectorCategoria({ categorias, error, seleccionadaId, onElegir, onNueva }) {
+// "conSinCategoria" en false oculta "Sin categoría" y, sin "onNueva", no aparece
+// "+ Nueva categoría" (ej. en Editar regla, donde la categoría es obligatoria).
+export default function SelectorCategoria({
+  categorias,
+  error,
+  seleccionadaId,
+  onElegir,
+  onNueva,
+  conSinCategoria = true,
+}) {
   return (
     <ScrollView style={styles.lista} showsVerticalScrollIndicator={false}>
       <MensajeError mensaje={error} />
 
-      <Opcion
-        nombre="Sin categoría"
-        atenuada
-        seleccionada={seleccionadaId == null}
-        onPress={() => onElegir(null)}
-      />
+      {conSinCategoria && (
+        <Opcion
+          nombre="Sin categoría"
+          atenuada
+          seleccionada={seleccionadaId == null}
+          onPress={() => onElegir(null)}
+        />
+      )}
 
       {categorias === null && !error ? (
         <ActivityIndicator color={colores.texto2} style={styles.cargando} />
@@ -32,13 +43,15 @@ export default function SelectorCategoria({ categorias, error, seleccionadaId, o
         ))
       )}
 
-      <Pressable
-        onPress={onNueva}
-        accessibilityRole="button"
-        style={({ pressed }) => [styles.opcion, pressed && styles.presionada]}>
-        <IconoCategoria icono="add" color={colores.acento} fondo={colores.acentoSuave} />
-        <Text style={[styles.nombre, styles.nueva]}>Nueva categoría</Text>
-      </Pressable>
+      {onNueva && (
+        <Pressable
+          onPress={onNueva}
+          accessibilityRole="button"
+          style={({ pressed }) => [styles.opcion, pressed && styles.presionada]}>
+          <IconoCategoria icono="add" color={colores.acento} fondo={colores.acentoSuave} />
+          <Text style={[styles.nombre, styles.nueva]}>Nueva categoría</Text>
+        </Pressable>
+      )}
     </ScrollView>
   );
 }

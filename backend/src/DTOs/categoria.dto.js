@@ -4,5 +4,6 @@ export class CategoriaDTO {
     this.nombre = categoria.name;
     this.icono = categoria.icon;
     this.cantidadMovimientos = categoria.movement_count;
+    this.cantidadReglas = categoria.rule_count;
   }
 }
