@@ -1,5 +1,6 @@
 import { mpConexionRepository } from "../repositories/mpConexion.repository.js";
 import { movimientoRepository } from "../repositories/movimiento.repository.js";
+import { reglaRepository } from "../repositories/regla.repository.js";
 import { mercadoPagoClient, ErrorMercadoPago } from "../clients/mercadoPago.client.js";
 import { enTransaccion } from "../config/database.js";
 import { cifrar, descifrar } from "../utils/cifrado.utils.js";
@@ -51,6 +52,26 @@ function tokensParaGuardar(respuesta) {
   };
 }
 
+// Los movimientos que tienen regla para su contraparte (ID de MP o huella
+// del CBU) entran con la categoría de la regla y con su nombre como descripción.
+// Arma dos Map para buscar cada contraparte sin recorrer todas las reglas.
+// pg devuelve los BIGINT como string, igual que el contraparteMpId del mapeo.
+function aplicarReglas(movimientos, reglas) {
+  const porMpId = new Map();
+  const porCuenta = new Map();
+  for (const regla of reglas) {
+    if (regla.counterparty_mp_id != null) porMpId.set(String(regla.counterparty_mp_id), regla);
+    else porCuenta.set(regla.counterparty_account_hash, regla);
+  }
+
+  return movimientos.map((movimiento) => {
+    const regla =
+      (movimiento.contraparteMpId != null && porMpId.get(movimiento.contraparteMpId)) ||
+      (movimiento.cuentaHash != null && porCuenta.get(movimiento.cuentaHash));
+    return regla ? { ...movimiento, descripcion: regla.name, categoriaId: regla.category_id } : movimiento;
+  });
+}
+
 // 400/401/403 de MP = token o refresh token inválido, vencido o revocado:
 // el usuario tiene que volver a conectar. Cualquier otro error (MP caído,
 // timeout) → 502.
@@ -66,9 +87,10 @@ function traducirErrorMp(error) {
 }
 
 export class MercadoPagoService {
-  constructor(repository, movimientoRepository, client) {
+  constructor(repository, movimientoRepository, reglaRepository, client) {
     this.repository = repository;
     this.movimientoRepository = movimientoRepository;
+    this.reglaRepository = reglaRepository;
     this.client = client;
   }
 
@@ -118,7 +140,12 @@ export class MercadoPagoService {
       throw traducirErrorMp(error);
     }
 
-    const movimientos = pagos.map((pago) => mapearPago(pago, conexion.mp_user_id)).filter(Boolean);
+    // Una sola consulta de reglas para toda la sincronización (pagos y transferencias).
+    const reglas = await this.reglaRepository.listarParaAplicar(userId);
+    const movimientos = aplicarReglas(
+      pagos.map((pago) => mapearPago(pago, conexion.mp_user_id)).filter(Boolean),
+      reglas
+    );
 
     // Movimientos y fecha de sincronización juntos: si falla el INSERT no se
     // avanza last_synced_at y la próxima vez se vuelve a intentar el mismo rango.
@@ -128,7 +155,7 @@ export class MercadoPagoService {
       return cantidad;
     });
 
-    const transferencias = await this.importarTransferencias(conexion, accessToken, inicio);
+    const transferencias = await this.importarTransferencias(conexion, accessToken, inicio, reglas);
 
     return { importados: importados + transferencias, ultimaSincronizacion: inicio };
   }
@@ -139,14 +166,14 @@ export class MercadoPagoService {
   // listo) y deja pedido el siguiente. Nunca hace fallar la sincronización: si
   // algo sale mal se loguea y se reintenta la próxima vez.
   // Devuelve cuántas transferencias nuevas importó.
-  async importarTransferencias(conexion, accessToken, inicio) {
+  async importarTransferencias(conexion, accessToken, inicio, reglas) {
     try {
       let importadas = 0;
       let cubiertoHasta = conexion.payouts_synced_until;
       let hayPedido = Boolean(conexion.payout_report_from);
 
       if (hayPedido) {
-        const resultado = await this.importarReportePedido(conexion, accessToken);
+        const resultado = await this.importarReportePedido(conexion, accessToken, reglas);
         if (resultado !== null) {
           importadas = resultado;
           cubiertoHasta = conexion.payout_report_requested_at;
@@ -180,7 +207,7 @@ export class MercadoPagoService {
 
   // Busca el reporte pedido entre los generados. Si todavía no está, devuelve
   // null; si está, importa sus transferencias y devuelve cuántas eran nuevas.
-  async importarReportePedido(conexion, accessToken) {
+  async importarReportePedido(conexion, accessToken, reglas) {
     // MP redondea las fechas a días enteros según la zona horaria de la
     // cuenta, así que no se compara exacto: sirve el que empieza ese mismo
     // día y cubre hasta el momento del pedido.
@@ -194,7 +221,10 @@ export class MercadoPagoService {
     );
     if (!reporte) return null;
 
-    const movimientos = leerTransferencias(await this.client.descargarReporte(accessToken, reporte.file_name));
+    const movimientos = aplicarReglas(
+      leerTransferencias(await this.client.descargarReporte(accessToken, reporte.file_name)),
+      reglas
+    );
 
     return enTransaccion(async (client) => {
       const cantidad = await this.movimientoRepository.crearImportados(conexion.user_id, movimientos, client);
@@ -236,4 +266,9 @@ export class MercadoPagoService {
   }
 }
 
-export const mercadoPagoService = new MercadoPagoService(mpConexionRepository, movimientoRepository, mercadoPagoClient);
+export const mercadoPagoService = new MercadoPagoService(
+  mpConexionRepository,
+  movimientoRepository,
+  reglaRepository,
+  mercadoPagoClient
+);

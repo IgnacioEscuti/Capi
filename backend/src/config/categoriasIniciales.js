@@ -1,7 +1,8 @@
 // Categorías que se le crean a cada usuario al registrarse.
 // Los íconos son nombres de MaterialIcons (@expo/vector-icons).
+// "compensa": en el resumen del mes suma su neto (entradas − salidas) a ingresos.
 export const CATEGORIAS_INICIALES = [
-  { nombre: "Sueldo", icono: "payments" },
+  { nombre: "Sueldo", icono: "payments", compensa: true },
   { nombre: "Supermercado", icono: "shopping-cart" },
   { nombre: "Comida", icono: "restaurant" },
   { nombre: "Transporte", icono: "directions-car" },

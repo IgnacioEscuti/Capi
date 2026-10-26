@@ -127,6 +127,45 @@ const crearValidadorMovimiento = (tiposPermitidos) => (req, res, next) => {
 export const validarMovimiento = crearValidadorMovimiento(TIPOS_MOVIMIENTO);
 export const validarEdicionMovimiento = crearValidadorMovimiento(TIPOS_MOVIMIENTO_EDICION);
 
+// ---------- reglas ----------
+
+// El nombre de la regla pasa a ser la descripción de los movimientos.
+const NOMBRE_REGLA_MAX_CARACTERES = 40;
+
+function errorNombreRegla(nombre) {
+  if (!esTextoConContenido(nombre)) return "El nombre de la regla es obligatorio";
+  if (nombre.trim().length > NOMBRE_REGLA_MAX_CARACTERES) {
+    return `El nombre de la regla puede tener como máximo ${NOMBRE_REGLA_MAX_CARACTERES} caracteres`;
+  }
+  return null;
+}
+
+// "regla" es opcional en el PUT de movimientos: { nombre } crea una regla para
+// la contraparte del movimiento. Lo demás (que sea de MP, que tenga contraparte
+// y categoría) lo verifica el service, que tiene el movimiento guardado.
+export function validarReglaDeMovimiento(req, res, next) {
+  const { regla } = req.body ?? {};
+  if (regla == null) return next();
+
+  if (typeof regla !== "object" || Array.isArray(regla)) {
+    return next(new ErrorHttp(400, "La regla debe ser un objeto { nombre }"));
+  }
+  const error = errorNombreRegla(regla.nombre);
+  if (error) return next(new ErrorHttp(400, error));
+
+  next();
+}
+
+export function validarRegla(req, res, next) {
+  const { nombre, categoriaId } = req.body ?? {};
+
+  const error = errorNombreRegla(nombre);
+  if (error) return next(new ErrorHttp(400, error));
+  if (!esIdValido(categoriaId)) return next(new ErrorHttp(400, "La categoría elegida no existe"));
+
+  next();
+}
+
 // ---------- Mercado Pago ----------
 
 // Solo se vuelve a la app: exp:// (Expo Go, desarrollo) o capi:// (app instalada).

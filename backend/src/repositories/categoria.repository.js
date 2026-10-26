@@ -34,13 +34,19 @@ export const categoriaRepository = {
     return rows[0];
   },
 
-  // Inserta todas en una sola consulta: unnest "despliega" los dos arrays en
-  // filas (nombre[i], icono[i]). "db" es el pool o el client de una transacción.
+  // Inserta todas en una sola consulta: unnest "despliega" los arrays en
+  // filas (nombre[i], icono[i], compensa[i]). "db" es el pool o el client de una transacción.
   async crearVarias(userId, categorias, db = pool) {
     await db.query(
-      `INSERT INTO categories (user_id, name, icon)
-       SELECT $1, nombre, icono FROM unnest($2::text[], $3::text[]) AS c(nombre, icono)`,
-      [userId, categorias.map((c) => c.nombre), categorias.map((c) => c.icono)]
+      `INSERT INTO categories (user_id, name, icon, nets_out)
+       SELECT $1, nombre, icono, compensa
+       FROM unnest($2::text[], $3::text[], $4::boolean[]) AS c(nombre, icono, compensa)`,
+      [
+        userId,
+        categorias.map((c) => c.nombre),
+        categorias.map((c) => c.icono),
+        categorias.map((c) => c.compensa === true),
+      ]
     );
   },
 

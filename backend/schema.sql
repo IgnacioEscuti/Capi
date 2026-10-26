@@ -13,6 +13,9 @@ CREATE TABLE categories (
   user_id    INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   name       TEXT NOT NULL,
   icon       TEXT NOT NULL DEFAULT 'label',
+  -- Categoría que se compensa (ej. "Sueldo": cobros menos pagos a empleados).
+  -- En el resumen del mes suma su neto a ingresos y no cuenta como egreso.
+  nets_out   BOOLEAN NOT NULL DEFAULT false,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   UNIQUE (user_id, name)
 );
@@ -53,4 +56,22 @@ CREATE TABLE mp_connections (
   payouts_synced_until       TIMESTAMPTZ, -- hasta cuándo cubre el último reporte importado
   payout_report_from         TIMESTAMPTZ, -- inicio del reporte pedido y todavía no importado (NULL = ninguno)
   payout_report_requested_at TIMESTAMPTZ  -- cuándo se pidió ese reporte
+);
+
+-- Reglas por persona: los movimientos nuevos de MP con esta contraparte entran
+-- con esta categoría y con el nombre como descripción. La contraparte es el ID
+-- de usuario MP o la huella del CBU de destino (nunca las dos).
+CREATE TABLE rules (
+  id                         INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  user_id                    INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  counterparty_mp_id         BIGINT,
+  counterparty_account_hash  TEXT,
+  counterparty_account_last4 TEXT,
+  name                       TEXT NOT NULL,
+  category_id                INTEGER NOT NULL REFERENCES categories(id) ON DELETE CASCADE,
+  created_at                 TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at                 TIMESTAMPTZ NOT NULL DEFAULT now(),
+  CHECK ((counterparty_mp_id IS NULL) <> (counterparty_account_hash IS NULL)),
+  UNIQUE (user_id, counterparty_mp_id),
+  UNIQUE (user_id, counterparty_account_hash)
 );

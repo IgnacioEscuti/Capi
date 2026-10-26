@@ -1,8 +1,11 @@
 import { movimientoRepository } from "../repositories/movimiento.repository.js";
 import { categoriaRepository } from "../repositories/categoria.repository.js";
+import { reglaRepository } from "../repositories/regla.repository.js";
+import { enTransaccion } from "../config/database.js";
 import { ErrorHttp } from "../utils/errorHttp.utils.js";
 
 const PG_VIOLACION_FOREIGN_KEY = "23503";
+const PG_VIOLACION_UNIQUE = "23505";
 const CANTIDAD_ULTIMOS = 5;
 const MENSAJE_NO_ENCONTRADO = "Movimiento no encontrado";
 const MENSAJE_CATEGORIA_INVALIDA = "La categoría elegida no existe";
@@ -10,6 +13,10 @@ const MENSAJE_TIPO_MANUAL = "El tipo debe ser 'income' o 'expense'";
 const MENSAJE_MP_SOLO_DESCRIPCION_Y_CATEGORIA =
   "En los movimientos de Mercado Pago solo se pueden cambiar la descripción y la categoría";
 const MENSAJE_MP_NO_SE_BORRA = "Los movimientos de Mercado Pago no se pueden borrar";
+const MENSAJE_REGLA_SIN_CONTRAPARTE =
+  "Solo se pueden crear reglas desde movimientos de Mercado Pago con una persona o un CBU";
+const MENSAJE_REGLA_SIN_CATEGORIA = "Elegí una categoría para crear la regla";
+const MENSAJE_REGLA_DUPLICADA = "Ya tenés una regla para esta persona";
 
 const ORIGEN_MP = "mp_api";
 
@@ -24,9 +31,10 @@ function cambiaDatosDeMp(guardado, { tipo, monto, fecha }) {
 }
 
 export class MovimientoService {
-  constructor(repository, categoriaRepository) {
+  constructor(repository, categoriaRepository, reglaRepository) {
     this.repository = repository;
     this.categoriaRepository = categoriaRepository;
+    this.reglaRepository = reglaRepository;
   }
 
   async listar(userId) {
@@ -50,6 +58,8 @@ export class MovimientoService {
     if (!esDeMp && datos.tipo === "internal") throw new ErrorHttp(400, MENSAJE_TIPO_MANUAL);
 
     const movimiento = await this.prepararDatos(userId, datos);
+    if (datos.regla) return this.actualizarConRegla(guardado, userId, movimiento, datos.regla.nombre.trim());
+
     const actualizado = await this.guardarConCategoria(() =>
       esDeMp
         ? this.repository.actualizarDescripcionYCategoria(id, userId, movimiento)
@@ -57,6 +67,44 @@ export class MovimientoService {
     );
     if (!actualizado) throw new ErrorHttp(404, MENSAJE_NO_ENCONTRADO);
     return this.repository.buscarPorId(id, userId);
+  }
+
+  // Guarda el movimiento de MP y crea la regla para su contraparte, todo en
+  // una transacción: si falla cualquiera de los dos, no queda nada guardado.
+  // Si la descripción quedó vacía, el movimiento toma el nombre de la regla.
+  async actualizarConRegla(guardado, userId, movimiento, nombre) {
+    const tieneContraparte = guardado.counterparty_mp_id != null || guardado.counterparty_account_hash != null;
+    if (guardado.source !== ORIGEN_MP || !tieneContraparte) throw new ErrorHttp(400, MENSAJE_REGLA_SIN_CONTRAPARTE);
+    if (movimiento.categoriaId === null) throw new ErrorHttp(400, MENSAJE_REGLA_SIN_CATEGORIA);
+
+    try {
+      await this.guardarConCategoria(() =>
+        enTransaccion(async (client) => {
+          await this.repository.actualizarDescripcionYCategoria(
+            guardado.id,
+            userId,
+            { descripcion: movimiento.descripcion ?? nombre, categoriaId: movimiento.categoriaId },
+            client
+          );
+          await this.reglaRepository.crear(
+            userId,
+            {
+              contraparteMpId: guardado.counterparty_mp_id,
+              cuentaHash: guardado.counterparty_account_hash,
+              cuentaUltimos4: guardado.counterparty_account_last4,
+              nombre,
+              categoriaId: movimiento.categoriaId,
+            },
+            client
+          );
+        })
+      );
+    } catch (error) {
+      // El UNIQUE (user_id, contraparte) de rules es el que detecta la regla repetida.
+      if (error.code === PG_VIOLACION_UNIQUE) throw new ErrorHttp(409, MENSAJE_REGLA_DUPLICADA);
+      throw error;
+    }
+    return this.repository.buscarPorId(guardado.id, userId);
   }
 
   async borrar(id, userId) {
@@ -112,4 +160,4 @@ export class MovimientoService {
   }
 }
 
-export const movimientoService = new MovimientoService(movimientoRepository, categoriaRepository);
+export const movimientoService = new MovimientoService(movimientoRepository, categoriaRepository, reglaRepository);

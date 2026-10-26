@@ -6,7 +6,8 @@ App personal para registrar ingresos y egresos. Uso propio por ahora (quizás ve
 
 - Fuentes de dinero: **Mercado Pago** (carga automática desde la API de MP + reporte de liquidaciones para las transferencias a bancos) y **efectivo** (carga manual). Detalle en "Fuentes de datos".
 - **Solo para usuarios de Mercado Pago.** Ningún banco argentino (Santander, Galicia, BBVA, Brubank) ni otra billetera (Ualá, Naranja X, Personal Pay, MODO, Lemon) tiene API pública para leer movimientos de una cuenta personal. La contraparte sí puede ser de cualquier banco.
-- Todo el dinero junto, sin separar por cuenta. Retiros de efectivo de MP y transferencias entre cuentas propias = movimiento interno.
+Todo el dinero junto, sin separar por cuenta. Retiros de efectivo de MP = movimiento interno.
+Transferencias a cuentas propias de otros bancos = egreso: esa plata sale del alcance de Capi (lo que se gaste desde ahí no aparece). Se categorizan a mano según la cuenta de destino (ej. “Ahorro” o “Servicios”). A futuro, una regla por CBU (huella) podría hacerlo sola.
 - Cada usuario tiene su propia cuenta de MP asociada (diseño multiusuario desde el inicio).
 - Funciones a futuro (de a una, cuando se pidan): categorías con autocategorización por reglas, reportes (saldo, resumen mensual, gráficos, comparación entre meses), presupuestos por categoría, exportar a Excel/PDF, carga rápida de efectivo, cuadrar caja, gastos fijos recurrentes, deudas/plata prestada.
 - Fuera de alcance por ahora: cuotas de tarjeta, fotos de comprobantes.
@@ -178,7 +179,7 @@ Hacen falta igual para el efectivo y definen la tabla de movimientos (ver "Tabla
 - [x] Ajustes → Categorías (Stack propio dentro de la pestaña): cantidad, renombrar y borrar con aviso de cuántos movimientos quedan "Sin categoría".
 - [x] Probar en el iPhone con Expo Go contra el back local.
 
-### Etapa 3 — Carga automática desde la API de MP✅
+### Etapa 3 — Carga automática desde la API de MP ✅
 Conexión por OAuth de MP (multiusuario). Sincronización por polling (ver "Fuentes de datos").
 
 **3a — Deploy del back en Vercel**
@@ -271,7 +272,7 @@ Checklist 3c:
 - [x] Formulario de movimiento de MP: aviso "Importado de Mercado Pago…", tipo / monto / fecha con candado y deshabilitados, sin "Borrar"; al guardar reenvía tipo, monto y fecha originales.
 - [ ] Probar en el iPhone con Expo Go contra producción, conectando la cuenta real de MP.
 
-### Etapa 4 — Transferencias a CBU (reporte de liquidaciones)✅
+### Etapa 4 — Transferencias a CBU (reporte de liquidaciones) ✅
 Las transferencias a bancos no salen en `/v1/payments/search`, pero sí en el reporte de liquidaciones (`release_report`) de MP. Se suman como un paso extra de `POST /api/mp/sincronizar`. Lo que se verificó en "Fuentes de datos" → "Reporte de liquidaciones".
 
 - **Asíncrono, sin esperar:** cada sincronización importa el reporte que pidió la anterior (si ya está en `/list`) y deja pedido el siguiente. Las transferencias entran en la sincronización siguiente a que MP lo genera.
@@ -299,6 +300,45 @@ Checklist 4:
 - [x] Generar `CBU_HASH_KEY` y cargarla en el `.env` local y en Vercel; deploy.
 - [x] Probar en producción con la cuenta real: sincronizar (pide el reporte), volver a sincronizar cuando esté listo (entran las transferencias), sincronizar otra vez (0 nuevas).
 - [x] Ver el aviso y los textos nuevos en el iPhone.
+
+
+### Etapa 5 — Reglas por persona + sueldo neto ⬅ actual
+Orden después de esta etapa: PWA provisoria → Reportes. Face ID y recuperar contraseña quedan para más adelante.
+
+**Reglas**
+- Tabla `rules`: `user_id`, contraparte (`counterparty_mp_id` **o** `counterparty_account_hash` + `counterparty_account_last4`), `name` (nombre de la persona que pone el usuario), `category_id`. Una regla por contraparte y usuario.
+- Se crean desde el formulario de un movimiento de MP con contraparte: interruptor "Aplicar a los próximos de esta persona" + nombre. Ese movimiento se guarda con la categoría elegida.
+- Al sincronizar, cada movimiento nuevo de MP con regla entra con su categoría y con el nombre como descripción. Solo al insertar: nunca pisa ediciones ni toca movimientos viejos.
+- Ingresos desde bancos (CVU) no traen contraparte: sin regla, se editan a mano.
+- Ajustes → Reglas: lista ("Juan → Sueldo"), editar nombre y categoría, borrar.
+- Al crear la regla desde un movimiento, ese movimiento toma el nombre como descripción solo si la tenía vacía.
+- El DTO de movimiento suma `tieneContraparte` (booleano, sin exponer el ID ni la huella) y `regla` (`{ id, nombre, categoria }` o `null`): la app muestra el interruptor solo con contraparte, y la fila "Regla: Juan → Sueldo" si ya tiene regla.
+
+**Sueldo neto**
+- Columna nueva en `categories` que marca la categoría que se compensa. Se le pone a "Sueldo" al registrarse; migración para los usuarios existentes.
+- Resumen del mes (`/api/inicio`): esa categoría suma su neto (entradas − salidas) a ingresos, aunque dé negativo, y no suma a egresos. El saldo no cambia.
+
+**Diseño (antes de programar)**
+- Diseño en `docs/diseño/` (Editar movimiento MP A / B / C, Ajustes, Ajustes › Reglas, Reglas — vacío, Editar regla, Borrar regla — confirmación). De Ajustes se toma solo la fila "Reglas"; lo demás queda como está.
+
+**5a — Back**
+- Tabla `rules` con CHECK de una sola contraparte, `UNIQUE (user_id, counterparty_mp_id)` y `UNIQUE (user_id, counterparty_account_hash)`. `category_id` obligatoria con `ON DELETE CASCADE`: al borrar una categoría se borran sus reglas.
+- `categories.nets_out` (Sueldo en `true` al registrarse: `compensa: true` en `categoriasIniciales.js`).
+- La regla de un movimiento se busca por su contraparte (no se guarda qué regla lo categorizó): si se borra o edita la regla, los movimientos ya importados no cambian.
+- `PUT /api/movimientos/:id` con `regla: { nombre }` (máx. 40 caracteres): no es de MP o no tiene contraparte → 400; sin categoría → 400; ya hay regla → 409 (lo detecta el UNIQUE).
+- `/api/reglas`: GET, PUT `/:id` (`{ nombre, categoriaId }`), DELETE `/:id`. Sin POST (se crean desde el movimiento). DTO: `{ id, nombre, origen: 'mp' | 'cbu', ultimos4, categoria }`.
+
+Checklist 5a:
+- [x] `schema.sql` y migración aparte (`backend/migraciones/etapa-5a.sql`).
+- [x] Registro: "Sueldo" con `nets_out = true`.
+- [x] Resumen del mes con sueldo neto (`movimientoRepository.resumen`).
+- [x] Crear regla desde el PUT de movimientos, en una transacción con la edición.
+- [x] Rutas `/api/reglas` (GET, PUT, DELETE), filtradas por usuario.
+- [x] Sincronizar: reglas cargadas una vez y aplicadas a pagos y transferencias a CBU al insertar. Probado con client y repositories falsos.
+- [x] DTO de movimiento con `tieneContraparte` y `regla`.
+- [x] Correr la migración en Neon.
+- [x] Probar en local con una cuenta de prueba (puntos 1 a 4 + DTO; 30 chequeos OK, cuentas de prueba borradas).
+- [ ] Deploy y probar en producción.
 
 ### Después de las pantallas principales
 - **Face ID** (`expo-local-authentication`): pedirlo al abrir la app y al volver de segundo plano tras más de 1 minuto. La contraseña se pide solo si el token venció, se cerró sesión o falla Face ID. Requiere development build (Expo Go no soporta Face ID en iPhone).
@@ -369,7 +409,6 @@ Se pensó para las transferencias a bancos (y pagos con tarjeta). Se descartó e
 
 ## Pendientes
 
-- Transferencias a cuentas propias por CBU: hoy entran como egreso. Según "Idea general" deberían ser movimiento interno; Capi no puede saber si un CBU es propio. Idea: "Marcar CBU …5968 como cuenta propia" usando la huella.
 - Transferencias a CBU rechazadas o devueltas por el banco: no apareció ninguna, no se sabe cómo vienen en el reporte. Por ahora se ignoran (si MP devuelve la plata, el egreso queda igual).
 - Borrar la URL de webhook.site de la configuración de webhooks de la aplicación "Capi" en MP.
 - Antes de diseñar algo que dependa de Mercado Pago, verificar qué datos da realmente la API.

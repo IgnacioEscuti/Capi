@@ -14,6 +14,19 @@ export class MovimientoDTO {
     this.categoria = movimiento.category_id
       ? { id: movimiento.category_id, nombre: movimiento.category_name, icono: movimiento.category_icon }
       : null;
+    // Si se le puede crear una regla. Sin exponer el ID de MP ni la huella del CBU.
+    this.tieneContraparte = movimiento.counterparty_mp_id != null || movimiento.counterparty_account_hash != null;
+    this.regla = movimiento.rule_id
+      ? {
+          id: movimiento.rule_id,
+          nombre: movimiento.rule_name,
+          categoria: {
+            id: movimiento.rule_category_id,
+            nombre: movimiento.rule_category_name,
+            icono: movimiento.rule_category_icon,
+          },
+        }
+      : null;
   }
 }
 
