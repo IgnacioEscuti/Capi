@@ -401,9 +401,10 @@ Checklist 6:
 - [ ] `WEB_URL` en el proyecto del back + redeploy del back.
 - [ ] Probar en el iPhone: aviso en Safari, instalar, login, movimientos, fecha, conectar MP (vuelve a la PWA), sincronizar, navbar glass.
 - [ ] Probar que la app sigue igual en Expo Go.
-- [x] Franja vacía abajo en la PWA instalada: `height: 100vh` en html/body/#root solo con `@media (display-mode: standalone)` (`public/index.html`).
-- [ ] Probar en el iPhone (redeploy) que la app llega hasta abajo y el navbar queda donde en nativo.
-- [ ] Texto ~20% más grande en la PWA: revisar Ajustes → Pantalla y brillo → Tamaño del texto. Si está por debajo del medio, la causa es Dynamic Type (Expo Go lo aplica, la web no) y se decide cómo seguir.
+- [x] Texto más grande en la PWA: no era un error. El iPhone tiene el tamaño de texto achicado (Dynamic Type); Expo Go lo respeta y Safari no.
+- [x] PWA un 5% más chica: `zoom: 0.95` en `body` (no en `#root`: los `Modal` se montan en `body`). Probado en Edge (393×852): ocupa todo el ancho y alto; navbar, hoja "Fecha" y diálogo de confirmación bien ubicados.
+- [x] Viewport corto en standalone con black-translucent (iOS 26, WebKit bug 301108): franja vacía abajo y `env(safe-area-inset-top)` en 0, con el contenido bajo la hora. `html { height: 100lvh }` solo con `@media (display-mode: standalone)` (reemplaza el `100vh` anterior).
+- [ ] Probar en el iPhone (redeploy): "Hola, Ignacio" debajo de la hora en todas las pantallas, la app llega hasta abajo, el navbar queda como en nativo y en Safari (sin instalar) no se corta nada.
 
 ### Etapa 7 — Reportes
 Se define al terminar la etapa 6.
