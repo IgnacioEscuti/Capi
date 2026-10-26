@@ -9,10 +9,16 @@ import { DarkTheme, Stack, ThemeProvider } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect } from 'react';
+import { Platform } from 'react-native';
+import AvisoInstalacion from '@/components/AvisoInstalacion';
 import { AuthProvider, useAuth } from '@/context/AuthContext';
 import { colores } from '@/theme';
 
 SplashScreen.preventAutoHideAsync();
+
+// PROVISORIO-WEB: en web la app arranca en la URL del navegador (ej. "/" sin sesión) y, sin
+// destino explícito, Expo Router muestra "Unmatched Route". En nativo queda undefined, como antes.
+const esWeb = Platform.OS === 'web';
 
 const temaNavegacion = {
   ...DarkTheme,
@@ -48,15 +54,19 @@ function Navegacion({ fuentesListas }) {
   if (!listo) return null;
 
   return (
-    <Stack screenOptions={{ headerShown: false }}>
-      <Stack.Protected guard={Boolean(usuario)}>
-        <Stack.Screen name="(tabs)" />
-        <Stack.Screen name="movimiento" options={{ presentation: 'modal' }} />
-        <Stack.Screen name="regla" options={{ presentation: 'modal' }} />
-      </Stack.Protected>
-      <Stack.Protected guard={!usuario}>
-        <Stack.Screen name="(auth)" />
-      </Stack.Protected>
-    </Stack>
+    <>
+      <Stack screenOptions={{ headerShown: false }}>
+        <Stack.Protected guard={Boolean(usuario)} redirectTo={esWeb ? '/login' : undefined}>
+          <Stack.Screen name="(tabs)" />
+          <Stack.Screen name="movimiento" options={{ presentation: 'modal' }} />
+          <Stack.Screen name="regla" options={{ presentation: 'modal' }} />
+        </Stack.Protected>
+        <Stack.Protected guard={!usuario} redirectTo={esWeb ? '/' : undefined}>
+          <Stack.Screen name="(auth)" />
+        </Stack.Protected>
+      </Stack>
+      {/* PROVISORIO-WEB: solo se ve en la PWA abierta desde Safari; en nativo no dibuja nada. */}
+      <AvisoInstalacion />
+    </>
   );
 }

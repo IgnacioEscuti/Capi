@@ -1,0 +1,52 @@
+<!doctype html>
+<!--
+  PROVISORIO-WEB: toda la carpeta public/ (este index.html, manifest.json y los íconos)
+  y app/vercel.json existen solo para la PWA. Se borran al pasar a la app nativa.
+  Expo usa este archivo como plantilla de la versión web y copia public/ tal cual a dist/.
+-->
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <!-- viewport-fit=cover: la app ocupa toda la pantalla (también debajo de la barra de estado y del indicador de inicio).
+         maximum-scale=1: Safari no hace zoom al tocar un campo de texto. -->
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover" />
+    <title>%WEB_TITLE%</title>
+
+    <!-- PWA -->
+    <link rel="manifest" href="/manifest.json" />
+    <meta name="theme-color" content="#1A1B1E" />
+    <link rel="icon" type="image/png" href="/icon-192.png" />
+
+    <!-- iOS: ícono, nombre y pantalla completa al abrirla desde la pantalla de inicio.
+         black-translucent = barra de estado transparente con texto blanco, sobre el fondo oscuro de la app. -->
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <meta name="apple-mobile-web-app-title" content="Capi" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+
+    <!-- Reset recomendado por react-native-web, más el fondo de la app y sin "rebote" ni resaltado gris al tocar. -->
+    <style id="expo-reset">
+      html,
+      body {
+        height: 100%;
+        background-color: #1a1b1e;
+      }
+      body {
+        overflow: hidden;
+        overscroll-behavior: none;
+        -webkit-tap-highlight-color: transparent;
+      }
+      #root {
+        display: flex;
+        height: 100%;
+        flex: 1;
+      }
+    </style>
+  </head>
+
+  <body>
+    <noscript>Capi necesita JavaScript para funcionar.</noscript>
+    <div id="root"></div>
+  </body>
+</html>

@@ -1,0 +1,9 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "buildCommand": "npx expo export -p web",
+  "outputDirectory": "dist",
+  "rewrites": [
+    { "source": "/api/:ruta*", "destination": "https://capi-phi-sandy.vercel.app/api/:ruta*" },
+    { "source": "/(.*)", "destination": "/index.html" }
+  ]
+}

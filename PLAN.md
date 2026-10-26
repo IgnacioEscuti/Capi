@@ -18,6 +18,7 @@ Transferencias a cuentas propias de otros bancos = egreso: esa plata sale del al
   - `app/.npmrc` con `legacy-peer-deps=true`: npm corta la instalación por la dependencia opcional `react-native-windows` del datetimepicker (pide React Native 0.85; no se usa). Sacarlo cuando el datetimepicker lo resuelva.
 - Librerías de la app sumadas en la etapa 2: `@react-native-community/datetimepicker` (selector de fecha nativo).
 - Sumada en la etapa 3: `expo-web-browser` (login de Mercado Pago dentro de la app).
+- Sumadas en la etapa 6 (PROVISORIO-WEB, se sacan con la PWA): `react-native-web`, `react-dom`.
 - **Back:** Node + Express, Passport (local + jwt), bcryptjs. Deploy en **Vercel** (plan Hobby), ejecutado como Vercel Functions con Fluid compute.
 - **Base:** PostgreSQL en Neon, con el driver `pg` (SQL a mano, sin ORM).
 - Primera vez con React Native, Expo y PostgreSQL: explicar conceptos nuevos comparando con React web y MongoDB/Mongoose. No sumar tecnologías nuevas sin hablarlo.
@@ -270,7 +271,7 @@ Checklist 3c:
 - [x] Pull to refresh (`RefreshControl`) en Inicio y Movimientos; "Sincronizando con Mercado Pago…" arriba de la lista.
 - [x] Fila de movimiento interno: alcancía (`savings`), gris, sin signo, subtítulo "Movimiento interno".
 - [x] Formulario de movimiento de MP: aviso "Importado de Mercado Pago…", tipo / monto / fecha con candado y deshabilitados, sin "Borrar"; al guardar reenvía tipo, monto y fecha originales.
-- [ ] Probar en el iPhone con Expo Go contra producción, conectando la cuenta real de MP.
+- [x] Probar en el iPhone con Expo Go contra producción, conectando la cuenta real de MP.
 
 ### Etapa 4 — Transferencias a CBU (reporte de liquidaciones) ✅
 Las transferencias a bancos no salen en `/v1/payments/search`, pero sí en el reporte de liquidaciones (`release_report`) de MP. Se suman como un paso extra de `POST /api/mp/sincronizar`. Lo que se verificó en "Fuentes de datos" → "Reporte de liquidaciones".
@@ -302,8 +303,8 @@ Checklist 4:
 - [x] Ver el aviso y los textos nuevos en el iPhone.
 
 
-### Etapa 5 — Reglas por persona + sueldo neto ⬅ actual
-Orden después de esta etapa: PWA provisoria → Reportes. Face ID y recuperar contraseña quedan para más adelante.
+### Etapa 5 — Reglas por persona + sueldo neto ✅
+Orden después de esta etapa: PWA provisoria → Reportes. Face ID y recuperar contraseña, más adelante.
 
 **Reglas**
 - Tabla `rules`: `user_id`, contraparte (`counterparty_mp_id` **o** `counterparty_account_hash` + `counterparty_account_last4`), `name` (nombre de la persona que pone el usuario), `category_id`. Una regla por contraparte y usuario.
@@ -356,19 +357,57 @@ Checklist 5b:
 - [x] Editar regla: nombre, categoría, origen con candado, Guardar, "Borrar regla" con confirmación. Vuelve a la pantalla anterior.
 - [x] Back: `cantidadReglas` en categorías (probado en local). Ajustes → Categorías avisa que se borran sus reglas.
 - [x] La app compila (`expo export` de iOS sin errores). `expo lint` no corre: le falta `typescript` (no se instaló).
-- [ ] Probar en el iPhone contra el back local.
-- [ ] Deploy del back (5a + 5b) y probar en el iPhone contra producción.
+- [x] Probar en el iPhone contra el back local.
+- [x] Deploy del back (5a + 5b) y probar en el iPhone contra producción: reglas por MP y por CBU, editar/borrar, aviso al borrar categoría, sueldo neto en Inicio y transferencia real entrando con regla.
 
-### Después de las pantallas principales
+### Etapa 6 — PWA provisoria ⬅ actual
+Para usar y compartir Capi en el iPhone sin Expo Go ni cuenta de Apple, hasta pasar a la app nativa con TestFlight/App Store. (Se evaluaron EAS Update + Expo Go y TestFlight: el primero solo abre proyectos propios o de miembros de una organización de Expo; el segundo cuesta USD 99/año.)
+
+- **Todo el código de la versión web es PROVISORIO y se elimina al pasar a la app nativa.** Cada parte va marcada con `PROVISORIO-WEB` (código y config, también en el back).
+- Web: la misma app con React Native Web (`react-native-web`, `react-dom` con `npx expo install`), exportada con `npx expo export -p web`.
+- Hosting: proyecto **nuevo** de Vercel con Root Directory `app` y `app/vercel.json` (build, salida y rewrite de `/api` a https://capi-phi-sandy.vercel.app, sin CORS). El proyecto lo crea Nacho desde el panel.
+- PWA: manifest, ícono y meta tags de iOS para pantalla completa.
+- Aviso de instalación: si se abre en Safari y no está instalada (no standalone), mostrar cómo agregarla (Compartir → Agregar a pantalla de inicio). En iPhone no se puede instalar sola.
+- Adaptaciones web:
+  - Token en `localStorage` (en nativo sigue `expo-secure-store`). Es el JWT de Capi, nunca el de MP (que no sale del back).
+  - Fecha: `<input type="date">` nativo de Safari en lugar del datetimepicker.
+  - Sin pull to refresh: sincroniza al abrir.
+  - Navbar glass: verificar en Safari y ajustar lo mínimo.
+- Conectar MP desde la PWA (para poder compartirla): en web, redirección completa a MP; vuelve a `https://<url-pwa>/ajustes/mercado-pago?mp=ok|error`. Back: `returnUrl` acepta también la URL de la variable nueva `WEB_URL`.
+- Orden: 1) cambios en el código, 2) Nacho crea el proyecto en Vercel y anota la URL, 3) `WEB_URL` en Vercel (back) + deploy, 4) probar en el iPhone (instalar, login, movimientos, fecha, conectar MP, sincronizar).
+
+Decisiones 6:
+- Lo solo-web va en archivos `.web.js` (Expo los elige solo al compilar para web; el bundle nativo ni los incluye): `services/urlApi.web.js`, `services/token.storage.web.js`, `components/CalendarioFecha.web.js`, `components/AvisoInstalacion.web.js`, `utils/loginMp.web.js`. Sus versiones nativas hacen lo mismo que antes.
+- `app/public/`: plantilla `index.html` (meta tags de iOS, `viewport-fit=cover`, sin zoom al tocar un campo), `manifest.json` e íconos 180/192/512 generados desde `assets/images/icon.png` (hoy es el ícono de la plantilla de Expo). Expo copia `public/` a `dist/`.
+- Fecha en web: `<input type="date">` dentro de la hoja "Fecha" + botón "Listo" (Safari puede avisar cada giro de la ruedita).
+- Pull to refresh: en web `RefreshControl` no hace nada (React Native Web lo dibuja como un `View`), así que no hubo que tocar nada; sincroniza al abrir como siempre.
+- Navbar glass: `expo-blur` en web ya pone `-webkit-backdrop-filter` (Safari). Sin cambios.
+- Rutas protegidas: en web, `Stack.Protected` lleva `redirectTo` (`/login` sin sesión, `/` con sesión); sin eso, abrir `/` sin sesión mostraba "Unmatched Route". En nativo queda `undefined`, como antes.
+- Ajustes: `unstable_settings = { initialRouteName: 'index' }` para que al abrir directo `/ajustes/mercado-pago` (vuelta de MP) "Volver" tenga a dónde ir.
+- Conectar MP en web: `window.location.assign(url)`; al volver, la pantalla lee `?mp=ok|error`, muestra lo mismo que en nativo y saca el parámetro de la URL.
+- Back: `returnUrl` acepta exacto `${WEB_URL}/ajustes/mercado-pago` (sin query ni otras rutas); sin `WEB_URL` no cambia nada.
+
+Checklist 6:
+- [x] `react-native-web` y `react-dom` con `npx expo install`.
+- [x] `npx expo export -p web` compila; llamadas a `/api` relativo en web.
+- [x] `app/vercel.json`: build, `dist`, rewrite de `/api/:ruta*` al back y fallback a `index.html`.
+- [x] PWA: `public/index.html`, `manifest.json`, íconos.
+- [x] Aviso de instalación (iPhone fuera de standalone), con "Seguir en el navegador".
+- [x] Token en `localStorage`, fecha con `<input type="date">`, sin pull to refresh, navbar revisado.
+- [x] Conectar MP con redirección completa y resultado al volver.
+- [x] Back: `WEB_URL` opcional en `env.js` y `.env.example`; validación de `returnUrl` probada (exacta OK; con query, otra ruta, otro dominio o http → 400; exp:// y capi:// siguen OK).
+- [x] Probado en local (Edge headless con back falso): `/` sin sesión → login, aviso en iPhone, Inicio, Movimientos, formulario, Ajustes → MP con `?mp=error`. `expo export -p ios` sigue compilando.
+- [ ] Nacho crea el proyecto en Vercel (Root Directory `app`) y anota la URL.
+- [ ] `WEB_URL` en el proyecto del back + redeploy del back.
+- [ ] Probar en el iPhone: aviso en Safari, instalar, login, movimientos, fecha, conectar MP (vuelve a la PWA), sincronizar, navbar glass.
+- [ ] Probar que la app sigue igual en Expo Go.
+
+### Etapa 7 — Reportes
+Se define al terminar la etapa 6.
+
+### Más adelante
 - **Face ID** (`expo-local-authentication`): pedirlo al abrir la app y al volver de segundo plano tras más de 1 minuto. La contraseña se pide solo si el token venció, se cerró sesión o falla Face ID. Requiere development build (Expo Go no soporta Face ID en iPhone).
 - **Recuperar contraseña:** código de 6 dígitos por email, vence en 15 minutos. Columnas nuevas: `reset_code_hash`, `reset_code_expires_at` (con `ALTER TABLE`). Envío con Nodemailer + Gmail (contraseña de aplicación). Primero probar un mail desde Vercel: si el SMTP está bloqueado, pasar a un servicio por API.
-
-### PWA provisoria (más adelante, después del deploy)
-Para usar Capi en el iPhone sin Expo Go ni cuenta de Apple, hasta pasar a la app nativa con TestFlight/App Store.
-- Versión web de la app (React Native Web) en Vercel. El back ya está en Vercel: la web llama a `/api` sin CORS, sirviéndola desde el mismo proyecto o con un rewrite de `/api` a https://capi-phi-sandy.vercel.app (como AnimalPiletas). Se define al armarla.
-- En el iPhone: Safari → Compartir → Agregar a pantalla de inicio. Ícono, manifest y meta tags de iOS para pantalla completa.
-- Token en web: `localStorage` (en nativo sigue `expo-secure-store`).
-- **Todo el código de la versión web es PROVISORIO y se elimina al pasar a la app nativa.** Cada parte va marcada con el comentario `PROVISORIO-WEB` para encontrarla y borrarla.
 
 ## Fuentes de datos (investigado y probado con cuenta real, oct 2026)
 

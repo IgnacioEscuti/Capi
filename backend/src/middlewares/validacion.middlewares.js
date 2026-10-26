@@ -1,3 +1,4 @@
+import { env } from "../config/env.js";
 import { ErrorHttp } from "../utils/errorHttp.utils.js";
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -174,8 +175,13 @@ export function validarRegla(req, res, next) {
 const ESQUEMAS_RETORNO = ["exp:", "capi:"];
 const RETURN_URL_MAX_CARACTERES = 500;
 
+// PROVISORIO-WEB: la PWA vuelve a una URL https. Se acepta solo esta, comparada
+// exacta (sin query ni rutas extra), y solo si WEB_URL está configurada.
+const RETURN_URL_WEB = env.WEB_URL ? `${env.WEB_URL.replace(/\/+$/, "")}/ajustes/mercado-pago` : null;
+
 function esReturnUrlValida(valor) {
   if (typeof valor !== "string" || valor.length > RETURN_URL_MAX_CARACTERES) return false;
+  if (RETURN_URL_WEB && valor === RETURN_URL_WEB) return true; // PROVISORIO-WEB
   try {
     return ESQUEMAS_RETORNO.includes(new URL(valor).protocol);
   } catch {

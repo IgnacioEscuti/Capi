@@ -1,8 +1,7 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import * as Linking from 'expo-linking';
 import { router } from 'expo-router';
-import * as WebBrowser from 'expo-web-browser';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import BotonPrimario from '@/components/BotonPrimario';
@@ -14,6 +13,7 @@ import { useDatosAlEnfocar } from '@/hooks/useDatosAlEnfocar';
 import { desconectarMp, obtenerEstadoMp, obtenerUrlDeConexion } from '@/services/mercadoPago.service';
 import { colores, espaciado, fuentes, radios, tipografia } from '@/theme';
 import { formatearMomento } from '@/utils/formato';
+import { abrirLoginMp, useResultadoLoginMp } from '@/utils/loginMp';
 
 const IMPORTADOS = [
   { icono: 'swap-horiz', texto: 'Transferencias' },
@@ -25,6 +25,7 @@ const IMPORTADOS = [
 
 // Dirección a la que el back redirige al terminar el login de MP.
 // En Expo Go queda "exp://<ip>:8081/--/ajustes/mercado-pago"; en la app instalada, "capi://ajustes/mercado-pago".
+// En la PWA (PROVISORIO-WEB), "https://<pwa>/ajustes/mercado-pago".
 const URL_DE_VUELTA = Linking.createURL('/ajustes/mercado-pago');
 
 export default function MercadoPagoScreen() {
@@ -34,31 +35,43 @@ export default function MercadoPagoScreen() {
   const [conectando, setConectando] = useState(false);
   const [falloConexion, setFalloConexion] = useState(false);
   const [confirmandoDesconexion, setConfirmandoDesconexion] = useState(false);
+  // PROVISORIO-WEB: en la PWA se vuelve de MP abriendo esta pantalla con ?mp=ok|error. En nativo es siempre null.
+  const resultadoLoginMp = useResultadoLoginMp();
+
+  useEffect(() => {
+    if (!resultadoLoginMp) return;
+    if (resultadoLoginMp === 'ok') alConectar();
+    else setFalloConexion(true);
+    // Se saca ?mp= de la URL para que no se repita al recargar la página.
+    router.setParams({ mp: undefined });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [resultadoLoginMp]);
 
   async function conectar() {
     setConectando(true);
     setFalloConexion(false);
     try {
       const url = await obtenerUrlDeConexion(URL_DE_VUELTA);
-      // Abre el login de MP en un navegador dentro de la app. Se cierra solo cuando
-      // el back redirige a URL_DE_VUELTA, y devuelve esa URL con ?mp=ok o ?mp=error.
-      const resultado = await WebBrowser.openAuthSessionAsync(url, URL_DE_VUELTA);
-      const conecto = resultado.type === 'success' && Linking.parse(resultado.url).queryParams?.mp === 'ok';
+      const conecto = await abrirLoginMp(url, URL_DE_VUELTA);
 
       if (!conecto) {
         // Error de MP o el usuario cerró el navegador: los dos cuentan como "no se pudo conectar".
         setFalloConexion(true);
         return;
       }
-      setConectado(true);
-      recargar();
-      // Primera sincronización: al terminar, recarga para mostrar la hora de la última.
-      sincronizar().then(recargar);
+      alConectar();
     } catch {
       setFalloConexion(true);
     } finally {
       setConectando(false);
     }
+  }
+
+  function alConectar() {
+    setConectado(true);
+    recargar();
+    // Primera sincronización: al terminar, recarga para mostrar la hora de la última.
+    sincronizar().then(recargar);
   }
 
   async function desconectar() {

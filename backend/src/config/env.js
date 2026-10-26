@@ -8,6 +8,8 @@ export const env = {
   MP_REDIRECT_URI: process.env.MP_REDIRECT_URI,
   MP_TOKEN_KEY: process.env.MP_TOKEN_KEY,
   CBU_HASH_KEY: process.env.CBU_HASH_KEY,
+  // PROVISORIO-WEB: URL de la PWA (opcional). Si está, el retorno de OAuth de MP acepta volver ahí.
+  WEB_URL: process.env.WEB_URL,
 };
 
 const requeridas = [

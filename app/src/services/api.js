@@ -1,12 +1,6 @@
 import axios from 'axios';
 import { obtenerToken } from './token.storage';
-
-// Expo reemplaza process.env.EXPO_PUBLIC_* al compilar: hay que leerla así, sin desestructurar.
-const API_URL = process.env.EXPO_PUBLIC_API_URL;
-
-if (!API_URL) {
-  console.warn('Falta EXPO_PUBLIC_API_URL en app/.env (mirá .env.example).');
-}
+import { API_URL } from './urlApi';
 
 export const api = axios.create({
   baseURL: API_URL,

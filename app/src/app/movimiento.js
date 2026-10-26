@@ -1,11 +1,12 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
-import DateTimePicker, { DateTimePickerAndroid } from '@react-native-community/datetimepicker';
+import { DateTimePickerAndroid } from '@react-native-community/datetimepicker';
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { useCallback, useRef, useState } from 'react';
 import { Platform, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import BotonPrimario from '@/components/BotonPrimario';
 import BotonTexto from '@/components/BotonTexto';
+import CalendarioFecha from '@/components/CalendarioFecha';
 import CampoFormulario, { CampoBoton, SeparadorCampos, TarjetaCampos } from '@/components/CampoFormulario';
 import DialogoConfirmacion, { Resaltado } from '@/components/DialogoConfirmacion';
 import FormularioNombreCategoria from '@/components/FormularioNombreCategoria';
@@ -315,14 +316,9 @@ export default function MovimientoScreen() {
 
       <HojaInferior visible={hoja.visible} onCerrar={cerrarHoja} {...HOJAS[hoja.tipo]}>
         {hoja.tipo === 'fecha' && (
-          <DateTimePicker
-            value={dia}
-            mode="date"
-            display="inline"
-            locale="es-AR"
-            themeVariant="dark"
-            accentColor={colores.acento}
-            onValueChange={(_evento, fecha) => {
+          <CalendarioFecha
+            valor={dia}
+            onElegir={(fecha) => {
               setDia(fecha);
               cerrarHoja();
             }}
