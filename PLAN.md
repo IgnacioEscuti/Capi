@@ -409,6 +409,10 @@ Checklist 6:
 - [x] Resplandor al estirar. Primer intento (franja con `top` negativo dentro del scroll) descartado: Safari no pinta lo que queda por encima del contenido. Ahora `components/ScrollConResplandor.js`: bloque fijo detrás del scroll (mitad de arriba, color del borde del resplandor, `NARANJA_BORDE` exportado de `Resplandor`), ScrollView transparente y contenido opaco (`flexGrow: 1`, fondo `#1A1B1E`) con el resplandor encima. En reposo se ve igual; al estirar hacia abajo aparece el naranja; al estirar hacia arriba al final, el fondo. Solo Inicio lo usa: es la única pantalla con el resplandor dentro del scroll. `expo export -p web` y `-p ios` compilan.
 - [ ] Probar en el iPhone (redeploy): "Hola, Ignacio" debajo de la hora en la PWA instalada; en Safari sin instalar, igual que antes; Inicio sin corte al estirar (PWA y Expo Go).
 - [ ] Volver `html` a `height: 100%` (sacar el `@media` con `100lvh`) si, con `CorreccionInsets` andando, la app sigue llegando hasta abajo sin él.
+- [x] Inicio, "Este mes": la pista de la barra pasa de `colores.pistaBarra` a `colores.ingreso` (verde); lo gastado sigue en rojo encima (más del 100% → toda roja).
+- [x] Sincronizar al volver a la app: `SincronizacionContext` escucha `AppState` y sincroniza en cada paso a `active` (reutiliza la que esté en curso). En web, React Native Web arma `AppState` con `visibilitychange`.
+- [x] Volver arriba con el navbar: `useScrollToTop` (exportado por `expo-router`, que trae React Navigation adentro) en Inicio (ref a `ScrollConResplandor`, que la pasa al ScrollView) y Movimientos (FlatList). `NavbarGlass` emite `tabPress` igual que la barra por defecto: alcanza. Reportes y Ajustes no tienen scroll (`PantallaSeccion` es un `View`); en las subpantallas de Ajustes, tocar la pestaña ya vuelve a Ajustes (pop to top del Stack). `expo export -p web` y `-p ios` compilan.
+- [ ] Probar en el iPhone (PWA y Expo Go): barra verde, sincroniza al volver de segundo plano, tocar la pestaña activa sube la lista y cambiar de pestaña conserva la posición.
 
 ### Etapa 7 — Reportes
 Se define al terminar la etapa 6.

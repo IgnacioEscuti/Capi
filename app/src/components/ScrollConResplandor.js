@@ -7,6 +7,7 @@ import { colores } from '@/theme';
 // ahí va un bloque fijo con el mismo naranja del borde del resplandor, en vez del fondo liso.
 // El contenido es opaco, así que en reposo o scrolleando el bloque no se ve. Cubre solo
 // la mitad de arriba: al estirar hacia arriba al final de la lista se ve el fondo, sin naranja.
+// El resto de las props (también "ref", que en React 19 es una prop más) van al ScrollView.
 export default function ScrollConResplandor({ contentContainerStyle, children, ...props }) {
   return (
     <View style={styles.pantalla}>

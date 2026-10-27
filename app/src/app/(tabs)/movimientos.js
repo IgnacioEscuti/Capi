@@ -1,5 +1,6 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
-import { Fragment } from 'react';
+import { useScrollToTop } from 'expo-router';
+import { Fragment, useRef } from 'react';
 import { ActivityIndicator, FlatList, RefreshControl, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import FilaMovimiento, { SeparadorMovimientos } from '@/components/FilaMovimiento';
@@ -20,12 +21,16 @@ export default function MovimientosScreen() {
   const { datos: movimientos, error, recargar } = useDatosAlEnfocar(listarMovimientos, version);
   const { actualizando, actualizar } = useActualizarDeslizando(recargar);
   const grupos = movimientos ? agruparPorMes(movimientos) : [];
+  // Tocar la pestaña Movimientos estando en ella lleva la lista arriba de todo.
+  const refLista = useRef(null);
+  useScrollToTop(refLista);
 
   return (
     <View style={styles.pantalla}>
       <Resplandor />
       {/* Cada ítem de la lista es un mes entero (su tarjeta con todas las filas). */}
       <FlatList
+        ref={refLista}
         data={grupos}
         keyExtractor={(grupo) => grupo.clave}
         renderItem={({ item }) => <GrupoMes grupo={item} />}

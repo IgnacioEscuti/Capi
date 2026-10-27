@@ -1,6 +1,6 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
-import { Link } from 'expo-router';
-import { Fragment } from 'react';
+import { Link, useScrollToTop } from 'expo-router';
+import { Fragment, useRef } from 'react';
 import { ActivityIndicator, RefreshControl, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import FilaMovimiento, { SeparadorMovimientos } from '@/components/FilaMovimiento';
@@ -29,9 +29,13 @@ export default function InicioScreen() {
   const { version } = useSincronizacion();
   const { datos, error, recargar } = useDatosAlEnfocar(obtenerInicio, version);
   const { actualizando, actualizar } = useActualizarDeslizando(recargar);
+  // Tocar la pestaña Inicio estando en ella lleva la pantalla arriba de todo.
+  const refScroll = useRef(null);
+  useScrollToTop(refScroll);
 
   return (
     <ScrollConResplandor
+      ref={refScroll}
       contentContainerStyle={[styles.contenido, { paddingTop: insets.top + 12 }]}
       showsVerticalScrollIndicator={false}
       refreshControl={<RefreshControl refreshing={actualizando} onRefresh={actualizar} tintColor={colores.texto2} />}>
@@ -293,7 +297,7 @@ const styles = StyleSheet.create({
   pistaBarra: {
     height: 10,
     borderRadius: radios.pildora,
-    backgroundColor: colores.pistaBarra,
+    backgroundColor: colores.ingreso,
     overflow: 'hidden',
   },
   barra: {

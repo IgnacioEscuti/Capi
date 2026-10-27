@@ -1,4 +1,5 @@
 import { createContext, useContext, useEffect, useRef, useState } from 'react';
+import { AppState } from 'react-native';
 import { sincronizarMp } from '@/services/mercadoPago.service';
 
 const DURACION_AVISO_MS = 4000;
@@ -7,7 +8,7 @@ const SincronizacionContext = createContext(null);
 
 // Estado de la sincronización con Mercado Pago, compartido entre Inicio y Movimientos.
 // Va dentro del layout de las pestañas: se monta recién cuando hay sesión,
-// así que sincroniza al abrir la app (o al iniciar sesión).
+// así que sincroniza al abrir la app (o al iniciar sesión) y cada vez que se vuelve a ella.
 export function SincronizacionProvider({ children }) {
   const [sincronizando, setSincronizando] = useState(false);
   // null = todavía no se sabe. Sirve para no mostrar "Sincronizando…" a quien no conectó MP.
@@ -23,6 +24,15 @@ export function SincronizacionProvider({ children }) {
   // Una sola vez, al montarse (al abrir la app con sesión o al iniciar sesión).
   useEffect(() => {
     sincronizar();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Al volver a la app desde segundo plano (en web, al volver a la pestaña o a la PWA).
+  useEffect(() => {
+    const suscripcion = AppState.addEventListener('change', (estado) => {
+      if (estado === 'active') sincronizar();
+    });
+    return () => suscripcion.remove();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
