@@ -36,7 +36,7 @@ export default function InicioScreen() {
       contentContainerStyle={[styles.contenido, { paddingTop: insets.top + 12 }]}
       showsVerticalScrollIndicator={false}
       refreshControl={<RefreshControl refreshing={actualizando} onRefresh={actualizar} tintColor={colores.texto2} />}>
-      <Resplandor />
+      <Resplandor enScroll />
 
       <View style={styles.encabezado}>
         <View style={styles.saludo}>

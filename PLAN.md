@@ -405,6 +405,10 @@ Checklist 6:
 - [x] PWA un 5% más chica: `zoom: 0.95` en `body` (no en `#root`: los `Modal` se montan en `body`). Probado en Edge (393×852): ocupa todo el ancho y alto; navbar, hoja "Fecha" y diálogo de confirmación bien ubicados.
 - [x] Viewport corto en standalone con black-translucent (iOS 26, WebKit bug 301108): franja vacía abajo y `env(safe-area-inset-top)` en 0, con el contenido bajo la hora. `html { height: 100lvh }` solo con `@media (display-mode: standalone)` (reemplaza el `100vh` anterior).
 - [ ] Probar en el iPhone (redeploy): "Hola, Ignacio" debajo de la hora en todas las pantallas, la app llega hasta abajo, el navbar queda como en nativo y en Safari (sin instalar) no se corta nada.
+- [x] Inset de arriba en 0 en la PWA instalada (`100lvh` no alcanzó): `components/CorreccionInsets.web.js` envuelve la app en el layout raíz y pisa el contexto de `react-native-safe-area-context`. En standalone, si `top` llega en 0 usa 59; si llega un valor real, ese. Todas las pantallas, el aviso de instalación, las hojas y los diálogos lo toman sin cambios (los `Modal` reciben el contexto por el portal). En nativo, `CorreccionInsets.js` devuelve los hijos tal cual. `expo export -p web` y `-p ios` compilan.
+- [x] Resplandor al estirar: prop `enScroll` en `Resplandor` suma una franja del mismo naranja por encima del borde (fuera de pantalla en reposo). Solo Inicio lo usa: es la única pantalla con el resplandor dentro del scroll; en las demás está fijo detrás y no se corta.
+- [ ] Probar en el iPhone (redeploy): "Hola, Ignacio" debajo de la hora en la PWA instalada; en Safari sin instalar, igual que antes; Inicio sin corte al estirar (PWA y Expo Go).
+- [ ] Volver `html` a `height: 100%` (sacar el `@media` con `100lvh`) si, con `CorreccionInsets` andando, la app sigue llegando hasta abajo sin él.
 
 ### Etapa 7 — Reportes
 Se define al terminar la etapa 6.

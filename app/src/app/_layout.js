@@ -11,6 +11,7 @@ import { StatusBar } from 'expo-status-bar';
 import { useEffect } from 'react';
 import { Platform } from 'react-native';
 import AvisoInstalacion from '@/components/AvisoInstalacion';
+import CorreccionInsets from '@/components/CorreccionInsets';
 import { AuthProvider, useAuth } from '@/context/AuthContext';
 import { colores } from '@/theme';
 
@@ -34,12 +35,15 @@ export default function RootLayout() {
   });
 
   return (
-    <AuthProvider>
-      <ThemeProvider value={temaNavegacion}>
-        <StatusBar style="light" />
-        <Navegacion fuentesListas={fuentesCargadas || Boolean(errorFuentes)} />
-      </ThemeProvider>
-    </AuthProvider>
+    // PROVISORIO-WEB: CorreccionInsets solo hace algo en la PWA; en nativo devuelve los hijos tal cual.
+    <CorreccionInsets>
+      <AuthProvider>
+        <ThemeProvider value={temaNavegacion}>
+          <StatusBar style="light" />
+          <Navegacion fuentesListas={fuentesCargadas || Boolean(errorFuentes)} />
+        </ThemeProvider>
+      </AuthProvider>
+    </CorreccionInsets>
   );
 }
 
