@@ -7,6 +7,7 @@ import movimientoRoutes from "./routes/movimiento.routes.js";
 import inicioRoutes from "./routes/inicio.routes.js";
 import mercadoPagoRoutes from "./routes/mercadoPago.routes.js";
 import reglaRoutes from "./routes/regla.routes.js";
+import reporteRoutes from "./routes/reporte.routes.js";
 import { rutaNoEncontrada, errorHandler } from "./middlewares/error.middlewares.js";
 
 const app = express();
@@ -25,6 +26,7 @@ app.use("/api/movimientos", movimientoRoutes);
 app.use("/api/inicio", inicioRoutes);
 app.use("/api/mp", mercadoPagoRoutes);
 app.use("/api/reglas", reglaRoutes);
+app.use("/api/reportes", reporteRoutes);
 
 app.use(rutaNoEncontrada);
 app.use(errorHandler);

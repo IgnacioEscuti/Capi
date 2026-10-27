@@ -12,7 +12,7 @@ const CANTIDAD_REGLAS = `(SELECT COUNT(*)::int FROM rules r WHERE r.category_id 
 export const categoriaRepository = {
   async listarPorUsuario(userId) {
     const { rows } = await pool.query(
-      `SELECT id, name, icon, ${CANTIDAD_MOVIMIENTOS}, ${CANTIDAD_REGLAS}
+      `SELECT id, name, icon, color, ${CANTIDAD_MOVIMIENTOS}, ${CANTIDAD_REGLAS}
        FROM categories
        WHERE user_id = $1
        ORDER BY ${ORDEN_POR_NOMBRE}, id`,
@@ -21,32 +21,47 @@ export const categoriaRepository = {
     return rows;
   },
 
+  async buscarPorId(id, userId) {
+    const { rows } = await pool.query("SELECT id, name, icon, color FROM categories WHERE id = $1 AND user_id = $2", [
+      id,
+      userId,
+    ]);
+    return rows[0] ?? null;
+  },
+
+  // Colores que ya usan las categorías del usuario (con repetidos), para elegir el de una nueva.
+  async listarColores(userId) {
+    const { rows } = await pool.query("SELECT color FROM categories WHERE user_id = $1", [userId]);
+    return rows.map((fila) => fila.color);
+  },
+
   async existe(id, userId) {
     const { rowCount } = await pool.query("SELECT 1 FROM categories WHERE id = $1 AND user_id = $2", [id, userId]);
     return rowCount > 0;
   },
 
-  async crear(userId, { nombre, icono }) {
+  async crear(userId, { nombre, icono, color }) {
     const { rows } = await pool.query(
-      `INSERT INTO categories (user_id, name, icon)
-       VALUES ($1, $2, $3)
-       RETURNING id, name, icon, 0 AS movement_count, 0 AS rule_count`,
-      [userId, nombre, icono]
+      `INSERT INTO categories (user_id, name, icon, color)
+       VALUES ($1, $2, $3, $4)
+       RETURNING id, name, icon, color, 0 AS movement_count, 0 AS rule_count`,
+      [userId, nombre, icono, color]
     );
     return rows[0];
   },
 
   // Inserta todas en una sola consulta: unnest "despliega" los arrays en
-  // filas (nombre[i], icono[i], compensa[i]). "db" es el pool o el client de una transacción.
+  // filas (nombre[i], icono[i], color[i], compensa[i]). "db" es el pool o el client de una transacción.
   async crearVarias(userId, categorias, db = pool) {
     await db.query(
-      `INSERT INTO categories (user_id, name, icon, nets_out)
-       SELECT $1, nombre, icono, compensa
-       FROM unnest($2::text[], $3::text[], $4::boolean[]) AS c(nombre, icono, compensa)`,
+      `INSERT INTO categories (user_id, name, icon, color, nets_out)
+       SELECT $1, nombre, icono, color, compensa
+       FROM unnest($2::text[], $3::text[], $4::text[], $5::boolean[]) AS c(nombre, icono, color, compensa)`,
       [
         userId,
         categorias.map((c) => c.nombre),
         categorias.map((c) => c.icono),
+        categorias.map((c) => c.color),
         categorias.map((c) => c.compensa === true),
       ]
     );
@@ -56,7 +71,7 @@ export const categoriaRepository = {
     const { rows } = await pool.query(
       `UPDATE categories SET name = $3
        WHERE id = $1 AND user_id = $2
-       RETURNING id, name, icon, ${CANTIDAD_MOVIMIENTOS}, ${CANTIDAD_REGLAS}`,
+       RETURNING id, name, icon, color, ${CANTIDAD_MOVIMIENTOS}, ${CANTIDAD_REGLAS}`,
       [id, userId, nombre]
     );
     return rows[0] ?? null;

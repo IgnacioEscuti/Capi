@@ -40,6 +40,19 @@ export function formatearPesosConSigno(valor) {
   return `${signo} $ ${formatearNumero(valor)}`;
 }
 
+// Para etiquetas chicas de gráficos: "$950", "$236,8k", "$1,2M".
+export function formatearPesosCorto(valor) {
+  const conUnDecimal = (numero) => numero.toFixed(1).replace('.', ',').replace(/,0$/, '');
+  if (valor >= 1000000) return `$${conUnDecimal(valor / 1000000)}M`;
+  if (valor >= 1000) return `$${conUnDecimal(valor / 1000)}k`;
+  return `$${Math.round(valor)}`;
+}
+
+// "35,9%"
+export function formatearPorcentaje(valor) {
+  return `${valor.toFixed(1).replace('.', ',')}%`;
+}
+
 // ---------- fechas (siempre con la hora del teléfono) ----------
 
 export function esMismoDia(a, b) {
@@ -94,6 +107,16 @@ export function formatearMomento(fecha) {
 // "Octubre 2026"
 export function formatearMesAnio(fecha) {
   return `${MESES[fecha.getMonth()]} ${fecha.getFullYear()}`;
+}
+
+// "octubre", para usar dentro de una frase.
+export function formatearMes(fecha) {
+  return MESES[fecha.getMonth()].toLowerCase();
+}
+
+// "Oct", para los ejes de los gráficos.
+export function formatearMesCorto(fecha) {
+  return capitalizar(MESES_CORTOS[fecha.getMonth()]);
 }
 
 // ---------- usuario ----------

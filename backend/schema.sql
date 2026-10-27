@@ -16,6 +16,8 @@ CREATE TABLE categories (
   -- Categoría que se compensa (ej. "Sueldo": cobros menos pagos a empleados).
   -- En el resumen del mes suma su neto a ingresos y no cuenta como egreso.
   nets_out   BOOLEAN NOT NULL DEFAULT false,
+  -- Color en Reportes (hex, de PALETA_CATEGORIAS en config/categoriasIniciales.js).
+  color      TEXT NOT NULL,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   UNIQUE (user_id, name)
 );

@@ -28,6 +28,9 @@ export const colores = {
   egresoSuave: 'rgba(255,77,94,0.16)',
   egresoFondo: 'rgba(255,77,94,0.06)',
   egresoBorde: 'rgba(255,77,94,0.20)',
+
+  // Reportes: las categorías traen su color del back; "Sin categoría" va siempre en gris.
+  sinCategoria: '#6A6C73',
 };
 
 // En React Native el peso no se elige con fontWeight: cada peso de Outfit es una fuente distinta.

@@ -19,6 +19,7 @@ Transferencias a cuentas propias de otros bancos = egreso: esa plata sale del al
 - Librerías de la app sumadas en la etapa 2: `@react-native-community/datetimepicker` (selector de fecha nativo).
 - Sumada en la etapa 3: `expo-web-browser` (login de Mercado Pago dentro de la app).
 - Sumadas en la etapa 6 (PROVISORIO-WEB, se sacan con la PWA): `react-native-web`, `react-dom`.
+- Sumadas en la etapa 7: `react-native-gifted-charts` (dona y barras de Reportes) y `react-native-svg` (la usa para dibujar).
 - **Back:** Node + Express, Passport (local + jwt), bcryptjs. Deploy en **Vercel** (plan Hobby), ejecutado como Vercel Functions con Fluid compute.
 - **Base:** PostgreSQL en Neon, con el driver `pg` (SQL a mano, sin ORM).
 - Primera vez con React Native, Expo y PostgreSQL: explicar conceptos nuevos comparando con React web y MongoDB/Mongoose. No sumar tecnologías nuevas sin hablarlo.
@@ -283,7 +284,7 @@ Las transferencias a bancos no salen en `/v1/payments/search`, pero sí en el re
   - Si en 24 h no aparece, se descarta y se pide otro.
   - **Nunca hace fallar la sincronización:** si algo falla, se loguea, devuelve 0 y se reintenta la próxima vez. Timeout de 8 s por llamada al reporte (el resto, 15 s).
   - `importados` suma pagos + transferencias (el aviso de la app no cambia).
-- **Configuración del reporte** (se revisa antes de cada pedido): si la cuenta no tiene, se crea (columnas de Capi, sin programación, SFTP ni mails). Si ya tiene una, solo se le **agregan** las columnas que falten (`DATE`, `SOURCE_ID`, `DESCRIPTION`, `NET_DEBIT_AMOUNT`, `PAYOUT_BANK_ACCOUNT_NUMBER`); lo demás no se toca. El CSV se lee por nombre de columna y detecta el separador.
+- **Configuración del reporte** (se revisa antes de cada pedido): si la cuenta no tiene, se crea (columnas de Capi, sin programación, SFTP ni mails en la lista de notificaciones; el mail al dueño de la cuenta llega igual, ver "Fuentes de datos" → "Mails"). Si ya tiene una, solo se le **agregan** las columnas que falten (`DATE`, `SOURCE_ID`, `DESCRIPTION`, `NET_DEBIT_AMOUNT`, `PAYOUT_BANK_ACCOUNT_NUMBER`); lo demás no se toca. El CSV se lee por nombre de columna y detecta el separador.
 - **Mapeo:** solo filas `DESCRIPTION = payout` (los `payment` ya vienen por la API, `asset_management` no se importa, `reserve_*` es ruido). Egreso, monto `NET_DEBIT_AMOUNT`, fecha `DATE`, descripción "Transferencia a CBU …5968" (sin CBU: "Transferencia a banco"), `source = 'mp_api'`, `external_id = payout_<SOURCE_ID>` (el prefijo evita chocar con el ID de un pago).
 - **CBU (dato de un tercero):** se guarda la huella HMAC-SHA256 (`counterparty_account_hash`, clave `CBU_HASH_KEY`) y los últimos 4 (`counterparty_account_last4`). Sirve para reconocer al destinatario y para reglas futuras (se calcula el HMAC del CBU que escriba el usuario y se compara) sin guardar el número. No va al DTO por ahora.
 - **Base:** `movements` + `counterparty_account_hash`, `counterparty_account_last4`. `mp_connections` + `payouts_synced_until`, `payout_report_from`, `payout_report_requested_at` (se limpian al reconectar).
@@ -360,7 +361,7 @@ Checklist 5b:
 - [x] Probar en el iPhone contra el back local.
 - [x] Deploy del back (5a + 5b) y probar en el iPhone contra producción: reglas por MP y por CBU, editar/borrar, aviso al borrar categoría, sueldo neto en Inicio y transferencia real entrando con regla.
 
-### Etapa 6 — PWA provisoria ⬅ actual
+### Etapa 6 — PWA provisoria ✅
 Para usar y compartir Capi en el iPhone sin Expo Go ni cuenta de Apple, hasta pasar a la app nativa con TestFlight/App Store. (Se evaluaron EAS Update + Expo Go y TestFlight: el primero solo abre proyectos propios o de miembros de una organización de Expo; el segundo cuesta USD 99/año.)
 
 - **Todo el código de la versión web es PROVISORIO y se elimina al pasar a la app nativa.** Cada parte va marcada con `PROVISORIO-WEB` (código y config, también en el back).
@@ -397,28 +398,61 @@ Checklist 6:
 - [x] Conectar MP con redirección completa y resultado al volver.
 - [x] Back: `WEB_URL` opcional en `env.js` y `.env.example`; validación de `returnUrl` probada (exacta OK; con query, otra ruta, otro dominio o http → 400; exp:// y capi:// siguen OK).
 - [x] Probado en local (Edge headless con back falso): `/` sin sesión → login, aviso en iPhone, Inicio, Movimientos, formulario, Ajustes → MP con `?mp=error`. `expo export -p ios` sigue compilando.
-- [ ] Nacho crea el proyecto en Vercel (Root Directory `app`) y anota la URL.
-- [ ] `WEB_URL` en el proyecto del back + redeploy del back.
-- [ ] Probar en el iPhone: aviso en Safari, instalar, login, movimientos, fecha, conectar MP (vuelve a la PWA), sincronizar, navbar glass.
-- [ ] Probar que la app sigue igual en Expo Go.
+- [x] Nacho crea el proyecto en Vercel (Root Directory `app`) y anota la URL.
+- [x] `WEB_URL` en el proyecto del back + redeploy del back.
+- [x] Probar en el iPhone: aviso en Safari, instalar, login, movimientos, fecha, conectar MP (vuelve a la PWA), sincronizar, navbar glass.
+- [x] Probar que la app sigue igual en Expo Go.
 - [x] Texto más grande en la PWA: no era un error. El iPhone tiene el tamaño de texto achicado (Dynamic Type); Expo Go lo respeta y Safari no.
 - [x] PWA un 5% más chica: `zoom: 0.95` en `body` (no en `#root`: los `Modal` se montan en `body`). Probado en Edge (393×852): ocupa todo el ancho y alto; navbar, hoja "Fecha" y diálogo de confirmación bien ubicados.
 - [x] Viewport corto en standalone con black-translucent (iOS 26, WebKit bug 301108): franja vacía abajo y `env(safe-area-inset-top)` en 0, con el contenido bajo la hora. `html { height: 100lvh }` solo con `@media (display-mode: standalone)` (reemplaza el `100vh` anterior).
-- [ ] Probar en el iPhone (redeploy): "Hola, Ignacio" debajo de la hora en todas las pantallas, la app llega hasta abajo, el navbar queda como en nativo y en Safari (sin instalar) no se corta nada.
+- [x] Probar en el iPhone (redeploy): "Hola, Ignacio" debajo de la hora en todas las pantallas, la app llega hasta abajo, el navbar queda como en nativo y en Safari (sin instalar) no se corta nada.
 - [x] Inset de arriba en 0 en la PWA instalada (`100lvh` no alcanzó): `components/CorreccionInsets.web.js` envuelve la app en el layout raíz y pisa el contexto de `react-native-safe-area-context`. En standalone, si `top` llega en 0 usa 67 (59 de la barra de estado más aire, ajustado en el iPhone); si llega un valor real, ese. Todas las pantallas, el aviso de instalación, las hojas y los diálogos lo toman sin cambios (los `Modal` reciben el contexto por el portal). En nativo, `CorreccionInsets.js` devuelve los hijos tal cual. `expo export -p web` y `-p ios` compilan.
 - [x] Resplandor al estirar. Primer intento (franja con `top` negativo dentro del scroll) descartado: Safari no pinta lo que queda por encima del contenido. Ahora `components/ScrollConResplandor.js`: bloque fijo detrás del scroll (mitad de arriba, color del borde del resplandor, `NARANJA_BORDE` exportado de `Resplandor`), ScrollView transparente y contenido opaco (`flexGrow: 1`, fondo `#1A1B1E`) con el resplandor encima. En reposo se ve igual; al estirar hacia abajo aparece el naranja; al estirar hacia arriba al final, el fondo. Solo Inicio lo usa: es la única pantalla con el resplandor dentro del scroll. `expo export -p web` y `-p ios` compilan.
-- [ ] Probar en el iPhone (redeploy): "Hola, Ignacio" debajo de la hora en la PWA instalada; en Safari sin instalar, igual que antes; Inicio sin corte al estirar (PWA y Expo Go).
-- [ ] Volver `html` a `height: 100%` (sacar el `@media` con `100lvh`) si, con `CorreccionInsets` andando, la app sigue llegando hasta abajo sin él.
+- [x] Probar en el iPhone (redeploy): "Hola, Ignacio" debajo de la hora en la PWA instalada; en Safari sin instalar, igual que antes; Inicio sin corte al estirar (PWA y Expo Go).
 - [x] Inicio, "Este mes": la pista de la barra pasa de `colores.pistaBarra` a `colores.ingreso` (verde); lo gastado sigue en rojo encima (más del 100% → toda roja).
 - [x] Sincronizar al volver a la app: `SincronizacionContext` escucha `AppState` y sincroniza en cada paso a `active` (reutiliza la que esté en curso). En web, React Native Web arma `AppState` con `visibilitychange`.
 - [x] Volver arriba con el navbar: `useScrollToTop` (exportado por `expo-router`, que trae React Navigation adentro) en Inicio (ref a `ScrollConResplandor`, que la pasa al ScrollView) y Movimientos (FlatList). `NavbarGlass` emite `tabPress` igual que la barra por defecto: alcanza. Reportes y Ajustes no tienen scroll (`PantallaSeccion` es un `View`); en las subpantallas de Ajustes, tocar la pestaña ya vuelve a Ajustes (pop to top del Stack). `expo export -p web` y `-p ios` compilan.
-- [ ] Probar en el iPhone (PWA y Expo Go): barra verde, sincroniza al volver de segundo plano, tocar la pestaña activa sube la lista y cambiar de pestaña conserva la posición.
+- [x] Probar en el iPhone (PWA y Expo Go): barra verde, sincroniza al volver de segundo plano, tocar la pestaña activa sube la lista y cambiar de pestaña conserva la posición.
 - [x] Barra de "Este mes": la parte roja sin `borderRadius` propio (corte recto con el verde); la pista con `overflow: hidden` redondea solo los extremos.
 - [x] Ícono nuevo: `assets/images/capi-icon.png` (copia de `docs/diseño/capi-icon.png`, 1024×1024, opaco) en `app.json` → `icon`. Íconos de la PWA (`apple-touch-icon` 180, `icon-192`, que es también el favicon, e `icon-512`) regenerados desde él con `jimp-compact` (ya venía con Expo, script fuera del repo), en RGB sin canal alfa. Login, splash e íconos adaptativos de Android sin cambios.
-- [ ] Probar en el iPhone: barra con corte recto; PWA con el ícono nuevo (borrarla de la pantalla de inicio y volver a agregarla).
+- [x] Probar en el iPhone: barra con corte recto; PWA con el ícono nuevo (borrarla de la pantalla de inicio y volver a agregarla).
 
-### Etapa 7 — Reportes
-Se define al terminar la etapa 6.
+### Etapa 7 — Reportes ⬅ actual
+Pestaña Reportes (hoy "Próximamente"). Diseño en `docs/diseño/` (Reportes, Reportes — sin gastos, Reportes — vacío, Detalle de categoría).
+- **Cálculo (en todos los reportes):** los `internal` no cuentan; la categoría con `nets_out` (Sueldo) cuenta como neto en ingresos y nunca como gasto; "Sin categoría" es un bloque más; meses en hora de Argentina (como `resumen`).
+- **Colores por categoría:** columna `color` en `categories`, paleta tomada del diseño. Las iniciales reciben color al registrarse; las existentes, por migración; las nuevas toman el siguiente libre (si se terminan, se repiten). "Sin categoría" siempre gris. El color se usa solo en Reportes.
+- **Gráficos:** `react-native-gifted-charts` + `react-native-svg` (con `npx expo install`). Si no dibujan en la PWA, en web se usan barras con `View`, marcado `PROVISORIO-WEB`.
+- **7a:** pantalla Reportes con selector de mes (‹ ›, no pasa del mes actual) y estado vacío; gastos por categoría (dona con total + ranking con monto, %, barra; filas tocables); Detalle de categoría (total del mes, % y cantidad, barras de los últimos 12 meses con el mes elegido resaltado, movimientos del mes con la `FilaMovimiento` actual).
+- **7b:** resumen del mes (ahorro, tasa de ahorro, ingresos y egresos, "a esta altura del mes pasado llevabas gastado $X" con %, gasto promedio por día) + ingresos vs egresos de los últimos 6 meses.
+- **7c:** top 5 personas a las que más transferiste y de las que más recibiste (solo con regla; nombre de la regla).
+
+Decisiones 7a:
+- Paleta (`PALETA_CATEGORIAS` en `config/categoriasIniciales.js`) de **30 colores**, uno distinto por categoría hasta la 30 (de la 31 en adelante se repiten): los 7 del diseño (`#8B9CFF`, `#5EC8F2`, `#C39BFF`, `#FFC857`, `#F78FB3`, `#6FD6C6`, `#E0B48A`, medidos en el PNG) + 3 con el mismo estilo (`#B5D96A`, `#FF9C8A`, `#E58BE0`) para las 10 iniciales, + 10 más profundos y 10 más claros en los matices intermedios. Verificados con un script (distancia de color entre todos y lejos del rojo de egresos, el verde de ingresos y el naranja de acento) y mirados sobre la tarjeta. Sueldo lleva uno de los sumados (nunca aparece como gasto). "Sin categoría": `#6A6C73` (`colores.sinCategoria`). La migración tiene la misma paleta.
+- Categoría nueva: el color de la paleta que menos usa el usuario (empate → orden de la paleta).
+- "Gasto" = `expense` que no es `internal` ni de una categoría `nets_out`. Coincide con los egresos del mes de Inicio. Los ingresos dentro de una categoría de gasto (ej. un reintegro) no restan.
+- Estado vacío = el mes no tiene ingresos ni egresos (sin contar los `internal`). Sin gastos = hay movimientos pero ningún gasto: dona punteada (36 porciones grises) + texto.
+- Barras del ranking medidas contra la categoría más grande (esa ocupa todo el ancho); el % es sobre el total gastado.
+- Detalle: barras de los otros meses con el color de la categoría al 35%; el mes elegido con su monto arriba (`$236,8k`). La lista muestra solo los gastos que suman al total.
+- La dona y las barras de gifted-charts dibujan bien en la PWA (verificado con `expo export -p web` en Edge): no hizo falta la alternativa con `View`.
+
+Checklist 7a:
+- [x] `categories.color` en `schema.sql` y migración aparte (`backend/migraciones/etapa-7a.sql`): iniciales por nombre; el resto, primero los colores libres de cada usuario y después se repite la paleta.
+- [x] Registro con color para las 10 iniciales; categoría nueva con el siguiente libre. `CategoriaDTO` con `color`.
+- [x] `GET /api/reportes/categorias?mes=AAAA-MM` → `{ mes, cantidadMovimientos, totalGastado, categorias: [{ categoria, total, cantidad }] }` (`categoria` null = "Sin categoría"), de mayor a menor.
+- [x] `GET /api/reportes/categorias/:id?mes=AAAA-MM` (`:id` = número o `sin-categoria`) → `{ mes, categoria, total, cantidad, totalGastado, meses: [12 × { mes, total }], movimientos }`. Categoría ajena o inexistente → 404.
+- [x] `mes` validado en middleware (formato, años 2000–2099, no futuro en hora argentina) → 400. Todo filtrado por `user_id`, consultas parametrizadas, rango de mes en hora AR (usa el índice).
+- [x] Probado sin base: validación del mes y del id, elección de color, DTOs. Las 6 consultas pasan `EXPLAIN` contra Neon (solo lectura, sin la migración).
+- [x] App: `react-native-gifted-charts` + `react-native-svg` con `npx expo install`.
+- [x] Reportes como Stack dentro de la pestaña (`(tabs)/reportes/_layout.js`, `index.js`, `categoria.js`), como Ajustes.
+- [x] Selector de mes (‹ ›, › deshabilitado en el mes actual), estado vacío, estado sin gastos, dona con total + ranking (ícono, monto, barra, %, tocable).
+- [x] Detalle de categoría: total del mes con %, cantidad, barras de 12 meses con el elegido resaltado, movimientos del mes con `FilaMovimiento` (tocar abre la edición).
+- [x] Recarga al enfocar y con la `version` de sincronización (las dos pantallas).
+- [x] Volver arriba con el navbar: `useScrollToTop` en Reportes (en el detalle, tocar la pestaña ya vuelve a Reportes).
+- [x] Paleta ampliada a 30 colores (probado: 30 categorías → 30 colores distintos; la 31 repite el primero).
+- [x] Probado en web con back falso (Edge headless): normal, una sola categoría, sin gastos, vacío y detalle. `expo export -p web` y `-p ios` compilan.
+- [ ] Correr la migración en Neon.
+- [ ] Probar contra el back local con datos reales (Expo Go en el iPhone).
+- [ ] Deploy (back + PWA) y probar en el iPhone.
 
 ### Más adelante
 - **Face ID** (`expo-local-authentication`): pedirlo al abrir la app y al volver de segundo plano tras más de 1 minuto. La contraseña se pide solo si el token venció, se cerró sesión o falla Face ID. Requiere development build (Expo Go no soporta Face ID en iPhone).
@@ -452,9 +486,12 @@ Endpoints en `api.mercadopago.com/v1/account/release_report`: `/config` (GET / P
 - **Transferencias a CBU:** `DESCRIPTION = payout`, cada una en 3 filas con el mismo `SOURCE_ID` (dos `reserve_for_payout` que se compensan y el `payout`). Trae fecha y hora, `NET_DEBIT_AMOUNT`, `SOURCE_ID` (12 dígitos), `PAYOUT_BANK_ACCOUNT_NUMBER` (CBU completo de destino, 22 dígitos) y `EXTERNAL_REFERENCE` (ID de Coelsa). **No trae el nombre** del destinatario. Los `SOURCE_ID` de los payouts dan 404 en `/v1/payments/{id}`: nunca vienen por las dos fuentes.
 - También trae los `payment` (con `SOURCE_ID` = ID del pago de la API), `asset_management` (rendimientos) y `reserve_for_payment` (ruido).
 - **Configuración:** una cuenta sin configuración da 404 en `/config`; MP la crea sola (con columnas por defecto, sin `PAYOUT_BANK_ACCOUNT_NUMBER`) al pedir el primer reporte. Los nombres de columna vienen en inglés aunque el idioma sea `es`.
-- **Tiempos:** el primer reporte tardó ~2 h (mientras MP creaba la configuración); el segundo, menos de un minuto. MP manda un mail cuando está listo. `date_created` dice `-04:00` pero el valor está en UTC.
+- **Tiempos:** el primer reporte tardó ~2 h (mientras MP creaba la configuración); el segundo, menos de un minuto. Cuando está listo llega un mail (ver "Mails"). `date_created` dice `-04:00` pero el valor está en UTC.
 - MP redondea el rango a días enteros. El `id` que devuelve el POST no es el de `/list`. Pedir el mismo rango el mismo día no genera otro reporte.
 - El "settlement report" (todas las transacciones) no hizo falta probarlo.
+- **Mails (verificado 27/10/2026):**
+  - La config de la cuenta no tiene `notification_email_list` y el mail llega igual al dueño de la cuenta, uno por cada reporte pedido (incluidos los que pide Capi).
+  - La doc no ofrece forma de desactivarlo por pedido. Se probó mandar `"notify": false` en el POST: MP responde 202 pero el campo no aparece en la respuesta. Falta confirmar si evita el mail; si no, se saca y queda como limitación.
 
 ### Mails de MP (Gmail) — descartado
 Se pensó para las transferencias a bancos (y pagos con tarjeta). Se descartó en la etapa 4: las transferencias salen en el reporte de liquidaciones, los pagos con tarjeta no interesan, y leer Gmail exige un permiso "restringido" de Google (máximo 100 usuarios sin verificar; para más, auditoría anual paga).
@@ -485,6 +522,8 @@ Se pensó para las transferencias a bancos (y pagos con tarjeta). Se descartó e
 - Transferencias a CBU rechazadas o devueltas por el banco: no apareció ninguna, no se sabe cómo vienen en el reporte. Por ahora se ignoran (si MP devuelve la plata, el egreso queda igual).
 - Borrar la URL de webhook.site de la configuración de webhooks de la aplicación "Capi" en MP.
 - Antes de diseñar algo que dependa de Mercado Pago, verificar qué datos da realmente la API.
+- PWA: volver `html` a `height: 100%` (sacar el `@media` con `100lvh`) si, con `CorreccionInsets` andando, la app sigue llegando hasta abajo sin él.
+- PWA: actualizar al estirar (pull to refresh en web).
 - **Antes de vender:** pasar Vercel de Hobby a Pro, y hacer que el rate limit funcione con varias instancias (hoy está en memoria y cada instancia de Vercel cuenta por separado).
   - Rate limit en `POST /api/mp/sincronizar` (hoy se puede llamar sin límite y cada llamada le pega a MP).
   - Atar el `state` de OAuth al dispositivo: hoy, si alguien logra que otra persona abra una URL de autorización generada con su sesión (y la autorice en MP), la cuenta de MP de esa persona queda conectada al usuario Capi del otro.

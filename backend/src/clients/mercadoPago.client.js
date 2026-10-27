@@ -121,10 +121,13 @@ export const mercadoPagoClient = {
 
   // Pide que se genere el reporte; MP lo arma después (asíncrono). El id que
   // devuelve no es el que aparece en /list, así que no se usa.
+  // "notify" no está documentado por MP: se manda para intentar que no llegue
+  // el mail de "Tu reporte de liquidaciones está listo". MP lo acepta (202),
+  // pero no está confirmado que sirva.
   async solicitarReporte(accessToken, desde, hasta) {
     await pedirReporte("", accessToken, {
       method: "POST",
-      body: JSON.stringify({ begin_date: fechaSinMs(desde), end_date: fechaSinMs(hasta) }),
+      body: JSON.stringify({ begin_date: fechaSinMs(desde), end_date: fechaSinMs(hasta), notify: false }),
     });
   },
 

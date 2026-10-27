@@ -4,8 +4,8 @@ const ZONA_HORARIA = "America/Argentina/Buenos_Aires";
 
 // Movimiento + nombre e ícono de su categoría (null si no tiene) + la regla
 // de su contraparte, si hay. La contraparte (ID de MP o huella del CBU) se trae
-// para crear reglas, pero el DTO nunca la expone.
-const SELECT_MOVIMIENTO = `
+// para crear reglas, pero el DTO nunca la expone. (Lo usa también reporte.repository.)
+export const SELECT_MOVIMIENTO = `
   SELECT m.id, m.type, m.amount, m.occurred_at, m.description, m.source,
          m.category_id, c.name AS category_name, c.icon AS category_icon,
          m.counterparty_mp_id, m.counterparty_account_hash, m.counterparty_account_last4,

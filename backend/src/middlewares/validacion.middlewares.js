@@ -1,5 +1,6 @@
 import { env } from "../config/env.js";
 import { ErrorHttp } from "../utils/errorHttp.utils.js";
+import { mesActual } from "../utils/fecha.utils.js";
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const PASSWORD_MIN_CARACTERES = 8;
@@ -165,6 +166,28 @@ export function validarRegla(req, res, next) {
   if (!esIdValido(categoriaId)) return next(new ErrorHttp(400, "La categoría elegida no existe"));
 
   next();
+}
+
+// ---------- reportes ----------
+
+// "2026-10": años 2000 a 2099 y meses 01 a 12.
+const MES_REGEX = /^20\d{2}-(0[1-9]|1[0-2])$/;
+export const SIN_CATEGORIA = "sin-categoria";
+
+// Se comparan como texto: con el formato "AAAA-MM", el orden alfabético es el cronológico.
+export function validarMesReporte(req, res, next) {
+  const { mes } = req.query;
+  if (typeof mes !== "string" || !MES_REGEX.test(mes)) {
+    return next(new ErrorHttp(400, "El mes debe tener el formato AAAA-MM"));
+  }
+  if (mes > mesActual()) return next(new ErrorHttp(400, "El mes no puede ser futuro"));
+  next();
+}
+
+// El detalle de "Sin categoría" va por /categorias/sin-categoria; otro id mal formado → 404.
+export function validarCategoriaReporte(req, res, next) {
+  if (req.params.id === SIN_CATEGORIA) return next();
+  validarIdParam(req, res, next);
 }
 
 // ---------- Mercado Pago ----------
