@@ -300,10 +300,11 @@ const styles = StyleSheet.create({
     backgroundColor: colores.ingreso,
     overflow: 'hidden',
   },
+  // Sin borderRadius propio: el corte con el verde queda recto y la pista (overflow hidden)
+  // redondea solo los extremos. Con 100% o más, la pista entera se ve roja y redondeada.
   barra: {
     height: '100%',
     minWidth: 10,
-    borderRadius: radios.pildora,
     backgroundColor: colores.egreso,
   },
   encabezadoSeccion: {

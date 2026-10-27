@@ -378,7 +378,7 @@ Para usar y compartir Capi en el iPhone sin Expo Go ni cuenta de Apple, hasta pa
 
 Decisiones 6:
 - Lo solo-web va en archivos `.web.js` (Expo los elige solo al compilar para web; el bundle nativo ni los incluye): `services/urlApi.web.js`, `services/token.storage.web.js`, `components/CalendarioFecha.web.js`, `components/AvisoInstalacion.web.js`, `utils/loginMp.web.js`. Sus versiones nativas hacen lo mismo que antes.
-- `app/public/`: plantilla `index.html` (meta tags de iOS, `viewport-fit=cover`, sin zoom al tocar un campo), `manifest.json` e íconos 180/192/512 generados desde `assets/images/icon.png` (hoy es el ícono de la plantilla de Expo). Expo copia `public/` a `dist/`.
+- `app/public/`: plantilla `index.html` (meta tags de iOS, `viewport-fit=cover`, sin zoom al tocar un campo), `manifest.json` e íconos 180/192/512 generados desde `assets/images/capi-icon.png` (el logo de Capi; el `icon-192` hace también de favicon). Expo copia `public/` a `dist/`.
 - Fecha en web: `<input type="date">` dentro de la hoja "Fecha" + botón "Listo" (Safari puede avisar cada giro de la ruedita).
 - Pull to refresh: en web `RefreshControl` no hace nada (React Native Web lo dibuja como un `View`), así que no hubo que tocar nada; sincroniza al abrir como siempre.
 - Navbar glass: `expo-blur` en web ya pone `-webkit-backdrop-filter` (Safari). Sin cambios.
@@ -413,6 +413,9 @@ Checklist 6:
 - [x] Sincronizar al volver a la app: `SincronizacionContext` escucha `AppState` y sincroniza en cada paso a `active` (reutiliza la que esté en curso). En web, React Native Web arma `AppState` con `visibilitychange`.
 - [x] Volver arriba con el navbar: `useScrollToTop` (exportado por `expo-router`, que trae React Navigation adentro) en Inicio (ref a `ScrollConResplandor`, que la pasa al ScrollView) y Movimientos (FlatList). `NavbarGlass` emite `tabPress` igual que la barra por defecto: alcanza. Reportes y Ajustes no tienen scroll (`PantallaSeccion` es un `View`); en las subpantallas de Ajustes, tocar la pestaña ya vuelve a Ajustes (pop to top del Stack). `expo export -p web` y `-p ios` compilan.
 - [ ] Probar en el iPhone (PWA y Expo Go): barra verde, sincroniza al volver de segundo plano, tocar la pestaña activa sube la lista y cambiar de pestaña conserva la posición.
+- [x] Barra de "Este mes": la parte roja sin `borderRadius` propio (corte recto con el verde); la pista con `overflow: hidden` redondea solo los extremos.
+- [x] Ícono nuevo: `assets/images/capi-icon.png` (copia de `docs/diseño/capi-icon.png`, 1024×1024, opaco) en `app.json` → `icon`. Íconos de la PWA (`apple-touch-icon` 180, `icon-192`, que es también el favicon, e `icon-512`) regenerados desde él con `jimp-compact` (ya venía con Expo, script fuera del repo), en RGB sin canal alfa. Login, splash e íconos adaptativos de Android sin cambios.
+- [ ] Probar en el iPhone: barra con corte recto; PWA con el ícono nuevo (borrarla de la pantalla de inicio y volver a agregarla).
 
 ### Etapa 7 — Reportes
 Se define al terminar la etapa 6.
