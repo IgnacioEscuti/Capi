@@ -8,8 +8,8 @@ import { ZONA_HORARIA } from "../utils/fecha.utils.js";
 // - Sin categoría (category_id NULL) es un bloque más.
 // - Los meses van en hora argentina (como el resumen de Inicio).
 //
-// En todas las consultas: $1 = usuario, $2 = primer día del mes ("2026-10-01"),
-// $3 = zona horaria y $4 = categoría (NULL = "Sin categoría").
+// En todas las consultas: $1 = usuario, $2 = primer día del mes ("2026-10-01") y
+// $3 = zona horaria. $4, si está, es la categoría (NULL = "Sin categoría") o una cantidad de días.
 
 // Rango [inicio del mes, inicio del siguiente) en hora argentina. Se compara
 // occurred_at contra un rango (y no date_trunc(occurred_at)) para que use el índice.
@@ -18,6 +18,13 @@ const EN_EL_MES = `m.occurred_at >= ($2::timestamp AT TIME ZONE $3)
 
 // "c" es la categoría del movimiento (LEFT JOIN: NULL si no tiene).
 const ES_GASTO = `m.type = 'expense' AND NOT COALESCE(c.nets_out, false)`;
+
+// Ingresos del mes, igual que el resumen de Inicio: los ingresos comunes + el neto
+// (entradas − salidas) de la categoría que se compensa, aunque dé negativo.
+// Los 'internal' ya quedan afuera en el WHERE / JOIN de cada consulta.
+const SUMA_INGRESOS = `COALESCE(SUM(m.amount) FILTER (WHERE m.type = 'income' AND NOT COALESCE(c.nets_out, false)), 0)
+  + COALESCE(SUM(CASE m.type WHEN 'income' THEN m.amount ELSE -m.amount END) FILTER (WHERE c.nets_out), 0)`;
+const SUMA_EGRESOS = `COALESCE(SUM(m.amount) FILTER (WHERE ${ES_GASTO}), 0)`;
 
 // IS NOT DISTINCT FROM es "=" pero tratando NULL como un valor más: con
 // $4 = NULL trae los "Sin categoría" (con "=" no traería ninguno).
@@ -67,6 +74,36 @@ export const reporteRepository = {
       [userId, primerDia(mes), ZONA_HORARIA, categoriaId]
     );
     return rows;
+  },
+
+  // Ingresos y egresos de los 6 meses que terminan en "mes" (incluido), del más viejo al más nuevo.
+  async ingresosYEgresosUltimos6Meses(userId, mes) {
+    const { rows } = await pool.query(
+      `SELECT to_char(meses.inicio, 'YYYY-MM') AS month, ${SUMA_INGRESOS} AS income, ${SUMA_EGRESOS} AS expense
+       FROM generate_series($2::timestamp - interval '5 months', $2::timestamp, interval '1 month') AS meses(inicio)
+       LEFT JOIN (movements m LEFT JOIN categories c ON c.id = m.category_id)
+         ON m.user_id = $1 AND m.type <> 'internal'
+         AND m.occurred_at >= (meses.inicio AT TIME ZONE $3)
+         AND m.occurred_at < ((meses.inicio + interval '1 month') AT TIME ZONE $3)
+       GROUP BY meses.inicio
+       ORDER BY meses.inicio`,
+      [userId, primerDia(mes), ZONA_HORARIA]
+    );
+    return rows;
+  },
+
+  // Egresos del mes desde el día 1 hasta el día "dias" incluido (para "a esta altura del mes pasado").
+  async egresosHastaElDia(userId, mes, dias) {
+    const { rows } = await pool.query(
+      `SELECT ${SUMA_EGRESOS} AS expense
+       FROM movements m
+       LEFT JOIN categories c ON c.id = m.category_id
+       WHERE m.user_id = $1
+         AND m.occurred_at >= ($2::timestamp AT TIME ZONE $3)
+         AND m.occurred_at < (($2::timestamp + make_interval(days => $4)) AT TIME ZONE $3)`,
+      [userId, primerDia(mes), ZONA_HORARIA, dias]
+    );
+    return rows[0].expense;
   },
 
   // Los gastos de la categoría en el mes, más nuevo primero (mismas columnas que la lista de Movimientos).

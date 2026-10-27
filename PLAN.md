@@ -454,6 +454,25 @@ Checklist 7a:
 - [ ] Probar contra el back local con datos reales (Expo Go en el iPhone).
 - [ ] Deploy (back + PWA) y probar en el iPhone.
 
+Decisiones 7b:
+- Endpoint aparte `GET /api/reportes/resumen?mes=AAAA-MM` (el de categorías queda igual). La app pide los dos en paralelo (`obtenerReporteDelMes`) y los muestra juntos.
+- Ingresos y egresos con las mismas reglas que el resumen de Inicio: ingresos = ingresos comunes + neto de la categoría `nets_out`; egresos = gastos (sin `internal` ni `nets_out`). Ahorro = ingresos − egresos.
+- Tasa de ahorro = ahorro / ingresos; con ingresos ≤ 0 (puede pasar con el neto de Sueldo negativo) → `null` y la app muestra "—". Tasa negativa → chip rojo.
+- Comparación: mes actual (hora AR) → egresos del mes pasado del día 1 al día de hoy incluido, con tope en su último día (`tipo: 'mismo_dia'`); mes pasado → el anterior completo (`tipo: 'mes_anterior'`). `variacion` = (egresos − anteriores) / anteriores en %; sin gastos anteriores → `null` y no hay chip. Igual (0%) → chip gris sin flecha.
+- Gasto promedio por día = egresos / días (mes actual: el día de hoy en AR; mes pasado: los días del mes). Se muestra redondeado a pesos.
+- Gráfico: gifted-charts (barras agrupadas: la de ingresos con una separación chica, la de egresos con la de entre meses). El mes elegido con el verde y rojo plenos; los otros al 40%. Eje Y con 3 líneas (0, mitad, tope) y tope "redondo" (`calcularTopeEje`: 1.480.000 → 1,5M; mínimo 1.000). Los nombres de los meses van en una fila propia debajo del gráfico (para la píldora del mes elegido). Ingresos negativos se dibujan en 0.
+- El estado vacío (mes sin movimientos) sigue igual: no muestra el resumen ni el gráfico.
+
+Checklist 7b:
+- [x] Back: `ingresosYEgresosUltimos6Meses` y `egresosHastaElDia` en `reporte.repository.js`; `resumen` en el service; `ResumenMesDTO`; ruta con `validarMesReporte`. Todo filtrado por usuario y parametrizado.
+- [x] `utils/fecha.utils.js`: `hoyEnArgentina`, `diasDelMes`, `mesAnterior`.
+- [x] Probado sin base: fechas (bisiesto, enero → diciembre), resumen con repository falso (mes actual con los números del diseño: 20,8% / ↑12,1% / $43.274; mes pasado; sin ingresos; sin gastos el mes anterior; decimales). Las 2 consultas nuevas pasan `EXPLAIN` contra Neon.
+- [x] App: tarjeta "Ahorro del mes" (`components/ResumenMesReporte.js`) arriba de "Gastos por categoría": ahorro verde/rojo, chip de tasa, subtarjetas, comparación con chip, gasto promedio por día.
+- [x] App: "Ingresos vs egresos" (`components/GraficoIngresosEgresos.js`) debajo de "Gastos por categoría", con leyenda, eje corto y el mes elegido resaltado.
+- [x] Probado en web con back falso (Edge headless): diseño, sin gastos (↓100% verde) y ahorro negativo sin ingresos (guion, sin chip). `expo export -p web` y `-p ios` compilan.
+- [ ] Probar contra el back local con datos reales (Expo Go en el iPhone).
+- [ ] Deploy (back + PWA) y probar en el iPhone.
+
 ### Más adelante
 - **Face ID** (`expo-local-authentication`): pedirlo al abrir la app y al volver de segundo plano tras más de 1 minuto. La contraseña se pide solo si el token venció, se cerró sesión o falla Face ID. Requiere development build (Expo Go no soporta Face ID en iPhone).
 - **Recuperar contraseña:** código de 6 dígitos por email, vence en 15 minutos. Columnas nuevas: `reset_code_hash`, `reset_code_expires_at` (con `ALTER TABLE`). Envío con Nodemailer + Gmail (contraseña de aplicación). Primero probar un mail desde Vercel: si el SMTP está bloqueado, pasar a un servicio por API.

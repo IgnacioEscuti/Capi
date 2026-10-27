@@ -4,12 +4,14 @@ import { useCallback, useRef, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { PieChart } from 'react-native-gifted-charts';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import GraficoIngresosEgresos from '@/components/GraficoIngresosEgresos';
 import IconoCategoria from '@/components/IconoCategoria';
 import MensajeError from '@/components/MensajeError';
 import Resplandor from '@/components/Resplandor';
+import ResumenMesReporte from '@/components/ResumenMesReporte';
 import { useSincronizacion } from '@/context/SincronizacionContext';
 import { useDatosAlEnfocar } from '@/hooks/useDatosAlEnfocar';
-import { obtenerGastosPorCategoria } from '@/services/reporte.service';
+import { obtenerReporteDelMes } from '@/services/reporte.service';
 import { colores, espaciado, fuentes, radios, tipografia } from '@/theme';
 import { formatearMes, formatearMesAnio, formatearPesos, formatearPorcentaje } from '@/utils/formato';
 import {
@@ -32,7 +34,7 @@ export default function ReportesScreen() {
   const { version } = useSincronizacion();
   const [mes, setMes] = useState(mesActual);
   // Una función nueva solo cuando cambia el mes: así useDatosAlEnfocar vuelve a pedir los datos.
-  const pedirReporte = useCallback(() => obtenerGastosPorCategoria(mes), [mes]);
+  const pedirReporte = useCallback(() => obtenerReporteDelMes(mes), [mes]);
   const { datos, error } = useDatosAlEnfocar(pedirReporte, version);
   // Mientras llega el mes nuevo no se muestran los datos del anterior con el título cambiado.
   const reporte = datos?.mes === mes ? datos : null;
@@ -55,10 +57,14 @@ export default function ReportesScreen() {
 
         {reporte === null ? (
           !error && <ActivityIndicator color={colores.texto2} style={styles.cargando} />
-        ) : reporte.cantidadMovimientos === 0 ? (
+        ) : reporte.gastos.cantidadMovimientos === 0 ? (
           <EstadoVacio mes={mes} />
         ) : (
-          <GastosPorCategoria reporte={reporte} />
+          <>
+            <ResumenMesReporte resumen={reporte.resumen} />
+            <GastosPorCategoria reporte={reporte.gastos} />
+            <GraficoIngresosEgresos meses={reporte.resumen.meses} mesElegido={mes} />
+          </>
         )}
       </ScrollView>
     </View>

@@ -32,6 +32,19 @@ export const nombreDeCategoria = (categoria) => categoria?.nombre ?? 'Sin catego
 
 export const calcularPorcentaje = (parte, total) => (total > 0 ? (parte / total) * 100 : 0);
 
+// Tope "redondo" del eje Y para 2 tramos (0, mitad, tope): con 1.480.000 da 1.500.000 (0 · 750k · 1,5M).
+// El tramo es el primer número "lindo" (1; 1,5; 2; 2,5; 3; 4; 5; 7,5 × 10^n) que alcanza la mitad del máximo.
+const TRAMOS_REDONDOS = [1, 1.5, 2, 2.5, 3, 4, 5, 7.5, 10];
+
+// Mínimo 1.000 (0 · 500 · 1k): con montos chicos las etiquetas redondeadas se repetirían.
+export function calcularTopeEje(maximo) {
+  if (maximo <= 1000) return 1000;
+  const mitad = maximo / 2;
+  const potencia = 10 ** Math.floor(Math.log10(mitad));
+  const tramo = TRAMOS_REDONDOS.find((numero) => numero * potencia >= mitad) * potencia;
+  return tramo * 2;
+}
+
 export function abrirDetalleCategoria(categoria, mes) {
   router.push({
     pathname: '/reportes/categoria',

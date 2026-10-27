@@ -40,17 +40,23 @@ export function formatearPesosConSigno(valor) {
   return `${signo} $ ${formatearNumero(valor)}`;
 }
 
-// Para etiquetas chicas de gráficos: "$950", "$236,8k", "$1,2M".
-export function formatearPesosCorto(valor) {
+// Para los ejes de los gráficos: "950", "750k", "1,5M".
+export function formatearNumeroCorto(valor) {
   const conUnDecimal = (numero) => numero.toFixed(1).replace('.', ',').replace(/,0$/, '');
-  if (valor >= 1000000) return `$${conUnDecimal(valor / 1000000)}M`;
-  if (valor >= 1000) return `$${conUnDecimal(valor / 1000)}k`;
-  return `$${Math.round(valor)}`;
+  if (valor >= 1000000) return `${conUnDecimal(valor / 1000000)}M`;
+  if (valor >= 1000) return `${conUnDecimal(valor / 1000)}k`;
+  return String(Math.round(valor));
 }
 
-// "35,9%"
-export function formatearPorcentaje(valor) {
-  return `${valor.toFixed(1).replace('.', ',')}%`;
+// Para etiquetas chicas de gráficos: "$950", "$236,8k", "$1,2M".
+export function formatearPesosCorto(valor) {
+  return `$${formatearNumeroCorto(valor)}`;
+}
+
+// "35,9%". Con decimalesOpcionales, "100%" en vez de "100,0%" (chips del resumen).
+export function formatearPorcentaje(valor, { decimalesOpcionales = false } = {}) {
+  const texto = valor.toFixed(1).replace('.', ',');
+  return `${decimalesOpcionales ? texto.replace(/,0$/, '') : texto}%`;
 }
 
 // ---------- fechas (siempre con la hora del teléfono) ----------

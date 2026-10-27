@@ -22,6 +22,29 @@ export class GastosPorCategoriaDTO {
   }
 }
 
+// Los números ya vienen calculados del service (ver reporteService.resumen).
+export class ResumenMesDTO {
+  constructor({ mes, ingresos, egresos, ahorro, tasaAhorro, comparacion, gastoPromedioDiario, meses }) {
+    this.mes = mes;
+    this.ingresos = ingresos;
+    this.egresos = egresos;
+    this.ahorro = ahorro;
+    this.tasaAhorro = tasaAhorro; // % o null (sin ingresos)
+    // tipo: "mismo_dia" (mes actual) o "mes_anterior" (mes pasado). variacion: % o null.
+    this.comparacion = {
+      tipo: comparacion.tipo,
+      egresosAnteriores: comparacion.egresosAnteriores,
+      variacion: comparacion.variacion,
+    };
+    this.gastoPromedioDiario = gastoPromedioDiario;
+    this.meses = meses.map(({ mes: mesFila, ingresos: ingresosFila, egresos: egresosFila }) => ({
+      mes: mesFila,
+      ingresos: ingresosFila,
+      egresos: egresosFila,
+    }));
+  }
+}
+
 export class DetalleCategoriaDTO {
   constructor({ mes, categoria, gastos, delMes, meses, movimientos }) {
     this.mes = mes;
