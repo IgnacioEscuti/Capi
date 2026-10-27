@@ -473,6 +473,22 @@ Checklist 7b:
 - [ ] Probar contra el back local con datos reales (Expo Go en el iPhone).
 - [ ] Deploy (back + PWA) y probar en el iPhone.
 
+Decisiones 7c:
+- Endpoint aparte `GET /api/reportes/personas?mes=AAAA-MM` → `{ mes, tieneReglas, transferidos: [{ id, nombre, monto }], recibidos: [...] }`. `id` y `nombre` son los de la regla (el id ya lo expone `/api/reglas`); nunca el ID de MP ni la huella. La app lo pide junto con los otros dos (`obtenerReporteDelMes`).
+- Movimientos cruzados con `rules` por contraparte (`counterparty_mp_id` o `counterparty_account_hash`), igual que el JOIN de la lista de movimientos: cuentan los de antes de crear la regla y no importa la categoría que tengan. Por eso los pagos a empleados categorizados como Sueldo (si tienen regla) aparecen en "A quién le transferiste más", aunque no cuenten como gasto.
+- `expense` → transferidos, `income` → recibidos; `internal` afuera. Top 5 de cada uno, de mayor a menor (empate → nombre). Una misma persona puede estar en las dos listas.
+- Una tarjeta con las dos listas y una línea entre ellas. Avatar con las iniciales del nombre de la regla (`obtenerIniciales`, el mismo del avatar de Inicio). Montos sin centavos, `−$` rojo / `+$` verde.
+- Sin ninguna regla: el texto del diseño en las dos listas. Con reglas pero sin movimientos en una lista: "Sin transferencias este mes" / "Sin ingresos de personas este mes".
+- El estado vacío (mes sin movimientos) sigue igual: no muestra esta tarjeta.
+
+Checklist 7c:
+- [x] Back: `totalesPorPersona` y `tieneReglas` en `reporte.repository.js`, `personas` en el service (top 5), `PersonasDTO`, ruta con `validarMesReporte`. Filtrado por usuario y parametrizado.
+- [x] Probado sin base: top 5 (la sexta queda afuera), separación por tipo, misma persona en las dos listas, sin reglas; el DTO no expone la contraparte aunque venga en la fila. `totalesPorPersona` pasa `EXPLAIN` contra Neon y `tieneReglas` corre (solo lectura).
+- [x] App: `components/TopPersonasReporte.js` al final de Reportes; service `obtenerPersonasMes`.
+- [x] Probado en web con back falso (Edge headless): diseño, sin reglas y con reglas pero sin recibidos. `expo export -p web` y `-p ios` compilan.
+- [ ] Probar contra el back local con datos reales (Expo Go en el iPhone).
+- [ ] Deploy (back + PWA) y probar en el iPhone.
+
 ### Más adelante
 - **Face ID** (`expo-local-authentication`): pedirlo al abrir la app y al volver de segundo plano tras más de 1 minuto. La contraseña se pide solo si el token venció, se cerró sesión o falla Face ID. Requiere development build (Expo Go no soporta Face ID en iPhone).
 - **Recuperar contraseña:** código de 6 dígitos por email, vence en 15 minutos. Columnas nuevas: `reset_code_hash`, `reset_code_expires_at` (con `ALTER TABLE`). Envío con Nodemailer + Gmail (contraseña de aplicación). Primero probar un mail desde Vercel: si el SMTP está bloqueado, pasar a un servicio por API.

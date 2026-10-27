@@ -14,10 +14,21 @@ export async function obtenerResumenMes(mes) {
   return data;
 }
 
-// Todo lo de la pantalla Reportes para un mes, pedido en paralelo: { mes, gastos, resumen }.
+// Devuelve { mes, tieneReglas, transferidos: [{ id, nombre, monto }], recibidos: [...] } (top 5 de cada uno;
+// id y nombre son los de la regla).
+export async function obtenerPersonasMes(mes) {
+  const { data } = await api.get('/api/reportes/personas', { params: { mes } });
+  return data;
+}
+
+// Todo lo de la pantalla Reportes para un mes, pedido en paralelo: { mes, gastos, resumen, personas }.
 export async function obtenerReporteDelMes(mes) {
-  const [gastos, resumen] = await Promise.all([obtenerGastosPorCategoria(mes), obtenerResumenMes(mes)]);
-  return { mes, gastos, resumen };
+  const [gastos, resumen, personas] = await Promise.all([
+    obtenerGastosPorCategoria(mes),
+    obtenerResumenMes(mes),
+    obtenerPersonasMes(mes),
+  ]);
+  return { mes, gastos, resumen, personas };
 }
 
 // id: el de la categoría o "sin-categoria". Devuelve { mes, categoria, total, cantidad, totalGastado,

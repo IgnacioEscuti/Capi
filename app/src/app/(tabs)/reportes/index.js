@@ -9,6 +9,7 @@ import IconoCategoria from '@/components/IconoCategoria';
 import MensajeError from '@/components/MensajeError';
 import Resplandor from '@/components/Resplandor';
 import ResumenMesReporte from '@/components/ResumenMesReporte';
+import TopPersonasReporte from '@/components/TopPersonasReporte';
 import { useSincronizacion } from '@/context/SincronizacionContext';
 import { useDatosAlEnfocar } from '@/hooks/useDatosAlEnfocar';
 import { obtenerReporteDelMes } from '@/services/reporte.service';
@@ -64,6 +65,7 @@ export default function ReportesScreen() {
             <ResumenMesReporte resumen={reporte.resumen} />
             <GastosPorCategoria reporte={reporte.gastos} />
             <GraficoIngresosEgresos meses={reporte.resumen.meses} mesElegido={mes} />
+            <TopPersonasReporte personas={reporte.personas} />
           </>
         )}
       </ScrollView>

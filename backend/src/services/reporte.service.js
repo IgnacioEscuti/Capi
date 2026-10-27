@@ -3,6 +3,8 @@ import { categoriaRepository } from "../repositories/categoria.repository.js";
 import { ErrorHttp } from "../utils/errorHttp.utils.js";
 import { diasDelMes, hoyEnArgentina, mesAnterior } from "../utils/fecha.utils.js";
 
+const CANTIDAD_TOP_PERSONAS = 5;
+
 // Restar o dividir decimales en JS no es exacto (0.3 - 0.1 = 0.19999999999999998).
 const redondearCentavos = (valor) => Math.round(valor * 100) / 100;
 
@@ -58,6 +60,17 @@ export class ReporteService {
       gastoPromedioDiario: redondearCentavos(egresos / dias),
       meses: meses.map((fila) => ({ mes: fila.month, ingresos: Number(fila.income), egresos: Number(fila.expense) })),
     };
+  }
+
+  // Top 5 de personas (con regla) a las que más se transfirió y de las que más se recibió en el mes.
+  async personas(userId, mes) {
+    const [totales, tieneReglas] = await Promise.all([
+      this.repository.totalesPorPersona(userId, mes),
+      this.repository.tieneReglas(userId),
+    ]);
+    // Ya vienen de mayor a menor: alcanza con separar por tipo y cortar.
+    const top = (tipo) => totales.filter((fila) => fila.type === tipo).slice(0, CANTIDAD_TOP_PERSONAS);
+    return { mes, tieneReglas, transferidos: top("expense"), recibidos: top("income") };
   }
 
   // categoriaId null = "Sin categoría".

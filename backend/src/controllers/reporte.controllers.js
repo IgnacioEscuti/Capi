@@ -1,5 +1,5 @@
 import { reporteService } from "../services/reporte.service.js";
-import { GastosPorCategoriaDTO, DetalleCategoriaDTO, ResumenMesDTO } from "../DTOs/reporte.dto.js";
+import { GastosPorCategoriaDTO, DetalleCategoriaDTO, ResumenMesDTO, PersonasDTO } from "../DTOs/reporte.dto.js";
 import { SIN_CATEGORIA } from "../middlewares/validacion.middlewares.js";
 
 export async function getGastosPorCategoria(req, res) {
@@ -10,6 +10,11 @@ export async function getGastosPorCategoria(req, res) {
 export async function getResumen(req, res) {
   const resumen = await reporteService.resumen(req.usuario.id, req.query.mes);
   res.status(200).json(new ResumenMesDTO(resumen));
+}
+
+export async function getPersonas(req, res) {
+  const personas = await reporteService.personas(req.usuario.id, req.query.mes);
+  res.status(200).json(new PersonasDTO(personas));
 }
 
 export async function getDetalleCategoria(req, res) {

@@ -106,6 +106,29 @@ export const reporteRepository = {
     return rows[0].expense;
   },
 
+  // Total del mes por persona con regla y por tipo (ingreso / egreso), de mayor a menor.
+  // Se cruza por contraparte (no por categoría): cuentan también los movimientos de esa
+  // persona anteriores a la regla. Solo sale el id y el nombre de la regla, nunca la contraparte.
+  async totalesPorPersona(userId, mes) {
+    const { rows } = await pool.query(
+      `SELECT r.id, r.name, m.type, SUM(m.amount) AS total
+       FROM movements m
+       JOIN rules r ON r.user_id = m.user_id
+         AND (r.counterparty_mp_id = m.counterparty_mp_id OR r.counterparty_account_hash = m.counterparty_account_hash)
+       WHERE m.user_id = $1 AND m.type IN ('income', 'expense') AND ${EN_EL_MES}
+       GROUP BY r.id, r.name, m.type
+       ORDER BY total DESC, r.name COLLATE "und-x-icu"`,
+      [userId, primerDia(mes), ZONA_HORARIA]
+    );
+    return rows;
+  },
+
+  // Para saber qué texto mostrar cuando no hay nadie: "todavía no nombraste a nadie" o "sin movimientos este mes".
+  async tieneReglas(userId) {
+    const { rowCount } = await pool.query("SELECT 1 FROM rules WHERE user_id = $1 LIMIT 1", [userId]);
+    return rowCount > 0;
+  },
+
   // Los gastos de la categoría en el mes, más nuevo primero (mismas columnas que la lista de Movimientos).
   async gastosDelMes(userId, categoriaId, mes) {
     const { rows } = await pool.query(

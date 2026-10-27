@@ -45,6 +45,18 @@ export class ResumenMesDTO {
   }
 }
 
+// Solo el id y el nombre de la regla: el ID de MP y la huella del CBU nunca salen.
+const personaDeFila = (fila) => ({ id: fila.id, nombre: fila.name, monto: Number(fila.total) });
+
+export class PersonasDTO {
+  constructor({ mes, tieneReglas, transferidos, recibidos }) {
+    this.mes = mes;
+    this.tieneReglas = tieneReglas;
+    this.transferidos = transferidos.map(personaDeFila);
+    this.recibidos = recibidos.map(personaDeFila);
+  }
+}
+
 export class DetalleCategoriaDTO {
   constructor({ mes, categoria, gastos, delMes, meses, movimientos }) {
     this.mes = mes;
