@@ -1,12 +1,12 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { Link } from 'expo-router';
 import { Fragment } from 'react';
-import { ActivityIndicator, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, RefreshControl, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import FilaMovimiento, { SeparadorMovimientos } from '@/components/FilaMovimiento';
 import IndicadorSincronizacion from '@/components/IndicadorSincronizacion';
 import MensajeError from '@/components/MensajeError';
-import Resplandor from '@/components/Resplandor';
+import ScrollConResplandor from '@/components/ScrollConResplandor';
 import { useAuth } from '@/context/AuthContext';
 import { useSincronizacion } from '@/context/SincronizacionContext';
 import { useActualizarDeslizando } from '@/hooks/useActualizarDeslizando';
@@ -31,13 +31,10 @@ export default function InicioScreen() {
   const { actualizando, actualizar } = useActualizarDeslizando(recargar);
 
   return (
-    <ScrollView
-      style={styles.pantalla}
+    <ScrollConResplandor
       contentContainerStyle={[styles.contenido, { paddingTop: insets.top + 12 }]}
       showsVerticalScrollIndicator={false}
       refreshControl={<RefreshControl refreshing={actualizando} onRefresh={actualizar} tintColor={colores.texto2} />}>
-      <Resplandor enScroll />
-
       <View style={styles.encabezado}>
         <View style={styles.saludo}>
           <Text style={styles.hola} numberOfLines={1}>
@@ -63,7 +60,7 @@ export default function InicioScreen() {
       ) : (
         !error && <ActivityIndicator color={colores.texto2} style={styles.cargando} />
       )}
-    </ScrollView>
+    </ScrollConResplandor>
   );
 }
 
@@ -155,10 +152,6 @@ function ResumenMes({ etiqueta, color, monto }) {
 }
 
 const styles = StyleSheet.create({
-  pantalla: {
-    flex: 1,
-    backgroundColor: colores.fondo,
-  },
   contenido: {
     paddingHorizontal: espaciado.pantalla,
     paddingBottom: espaciado.debajoDelNavbar,

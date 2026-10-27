@@ -5,8 +5,8 @@
 // (se montan con un portal, pero el contexto de React llega igual).
 import { SafeAreaInsetsContext, useSafeAreaInsets } from 'react-native-safe-area-context';
 
-// Alto de la barra de estado de los iPhone con Dynamic Island.
-const INSET_SUPERIOR_STANDALONE = 59;
+// Barra de estado de los iPhone con Dynamic Island (59), más un poco de aire: ajustado a ojo en el iPhone.
+const INSET_SUPERIOR_STANDALONE = 67;
 
 export default function CorreccionInsets({ children }) {
   const insets = useSafeAreaInsets();
